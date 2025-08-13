@@ -28,7 +28,7 @@
         <div class="card">
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered" id="laporanpenjualan">
+                    <table class="table table-bordered">
                         <thead class="table-light">
                             <tr>
                                 <th>No</th>
@@ -45,8 +45,8 @@
                                 <th>Total</th>
                             </tr>
                         </thead>
+                        {% for item in detailobjlokal %}
                         <tbody class="table-dark">
-                            {% for item in detailobjlokal %}
                             <tr>
                                 <td>{{forloop.counter}}</td>
                                 <td>{{item.0.id_penjualan}}</td>
@@ -113,10 +113,10 @@
                                 </td>
                                 <td>Rp{{item.3}}</td>
                             </tr>
-                            {% endfor %}
                         </tbody>
+                        {% endfor %}
                         <tfoot class="table-dark">
-                            <tr >
+                            <tr class="table-success">
                                 <th colspan="11" style="text-align:center;">Grand Total</th>
                                 <th>Rp{{grandtotallokal}}</th>
                             </tr>

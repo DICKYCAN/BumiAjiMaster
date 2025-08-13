@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 # Create your models here.
 class mitra(models.Model) :
@@ -10,6 +11,8 @@ class mitra(models.Model) :
     durasi_kontrak = models.PositiveIntegerField()
     luas_lahan = models.PositiveIntegerField(null=True)
     status_mitra = models.BooleanField(default=None, null=True)
+    minimal_kuantitas = models.PositiveIntegerField()
+    email = models.EmailField()
 
     def __str__(self) :
         return str(self.nama_mitra)
@@ -29,8 +32,8 @@ class komoditas(models.Model) :
     harga_beli = models.IntegerField()
     harga_jual = models.IntegerField()
 
-    def __str__(self) :
-        return "{} - {}".format(self.nama_komoditas,self.id_grade)
+    def __str__(self):
+        return f"{self.nama_komoditas} - {self.id_grade.nama_grade}"
 
 class produk(models.Model) :
     id_produk = models.AutoField(primary_key=True)
@@ -47,7 +50,7 @@ class panenmitra(models.Model) :
     tanggal_panen = models.DateField()
     
     def __str__(self) :
-        return str(self.idpanen_mitra)
+        return str(self.id_mitra.nama_mitra)
 
 class detailpanenmitra(models.Model) :
     iddetailpanen_mitra = models.AutoField(primary_key=True)
@@ -139,3 +142,11 @@ class biaya(models.Model) :
     def __str__(self) :
         return "{} - {}".format(self.idjenisbiaya,self.nama_biaya)
 
+class ActivityLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    action = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} - {self.action} - {self.timestamp}"

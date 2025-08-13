@@ -30,7 +30,7 @@
                         <label for="nama_mitra" class="col-sm-3 col-form-label">Nama Mitra</label>
                         <div class="col-sm-9">
                             <select class="form-control" name="nama_mitra" id="nama_mitra" required>
-                                {% for item in filtermitra %}
+                                {% for item in allmitra %}
                                 <option value="{{ item.id_mitra }}">{{ item }}</option>
                                 {% endfor %}
                             </select>

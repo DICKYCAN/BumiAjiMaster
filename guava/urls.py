@@ -80,4 +80,9 @@ urlpatterns = [
     path('laporan_labarugi', views.laporan_labarugi,name='laporan_labarugi'),
     path('laporanlabarugi_pdf<str:bulan>', views.laporanlabarugi_pdf,name='laporanlabarugi_pdf'),
 
+    path('total_komoditas/', views.total_komoditas, name='total_komoditas'),
+    path('rekap_panen/', views.rekap_panen_bulanan, name='rekap-panen'),
+    path('log_aktivitas/', views.log_aktivitas, name='log_aktivitas')
+
+
 ]

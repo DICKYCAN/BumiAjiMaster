@@ -28,7 +28,15 @@
                     <div class="form-group row">
                         <label class="col-sm-3 col-form-label">Grade</label>
                         <div class="col-sm-9">
-                            <input class="form-control" type="text" name="nama_grade" value="{{getkomoditas.id_grade.nama_grade}}" required>
+                            <select class="form-control" name="nama_grade">
+                                {% for i in gradeobj %}
+                                {% if i.nama_grade == nama_grade %}
+                                <option selected value="{{i.nama_grade}}">{{i.nama_grade}}</option>
+                                {% else %}
+                                <option value="{{i.nama_grade}}">{{i.nama_grade}}</option>
+                                {% endif %}
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
 

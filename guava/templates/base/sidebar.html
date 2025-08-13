@@ -262,6 +262,14 @@
                     <span>Panen Lokal</span>
                 </a>
             </li>
+            <li class="nav-item">
+                 <a class="nav-link" href="{% url 'total_komoditas' %}">
+                    <span>
+                        <i class="mdi mdi-human-greeting mr-2"></i>
+                    </span>
+                    <span>total panen</span>
+                </a>
+            </li>
           </ul>
         </div>
       </li>
@@ -402,4 +410,28 @@
         </div>
       </li>
       {% endif %}
-  </nav>
+
+  {% if is_owner or is_admin %}
+  <li class="nav-item menu-items">
+    <a class="nav-link" data-toggle="collapse" href="#ui-basic12" aria-expanded="false" aria-controls="ui-basic12">
+      <span class="menu-icon">
+        <i class="mdi mdi-clock"></i>
+      </span>
+      <span class="menu-title">Log aktivitas</span>
+      <i class="menu-arrow"></i>
+    </a>
+    <div class="collapse" id="ui-basic12">
+      <ul class="nav flex-column sub-menu">
+        <li class="nav-item">
+            <a class="nav-link" href="{% url 'log_aktivitas' %}">
+                <span>
+                    <i class="mdi mdi-account-multiple mr-2"></i>
+                </span>
+                <span>Log Aktivitas</span>
+            </a>
+        </li>
+      </ul>
+    </div>
+  </li>
+  {% endif %}
+</nav>

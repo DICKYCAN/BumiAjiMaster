@@ -28,7 +28,11 @@
                     <div class="form-group row">
                         <label class="col-sm-3 col-form-label">Grade</label>
                         <div class="col-sm-9">
-                            <input class="form-control" type="text" name="nama_grade" required>
+                            <select name="nama_grade" class="form-control">
+                                {% for i in gradeobj %}
+                                <option value="{{i.nama_grade}}">{{i.nama_grade}}</option>
+                                {% endfor %}
+                            </select>
                         </div>
                     </div>
 

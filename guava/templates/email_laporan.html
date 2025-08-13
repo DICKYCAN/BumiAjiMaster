@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: sans-serif;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <h2>Laporan Panen Bulanan</h2>
+    <p>Halo, {{ nama_mitra }}!</p>
+    <p>Total kuantitas panen bulan ini: <strong>{{ total }}</strong> kg</p>
+    <p>Kebutuhan minimal: <strong>{{ kuantitas_minimal }}</strong> kg</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Tanggal Panen</th>
+                <th>Nama Komoditas</th>
+                <th>Kuantitas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in detail %}
+            <tr>
+                <td>{{ item.tanggal_panen }}</td>
+                <td>{{ item.nama_komoditas }}</td>
+                <td>{{ item.kuantitas }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

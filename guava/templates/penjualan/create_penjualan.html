@@ -44,43 +44,76 @@
 
                     <div class="detail-group mb-3">
                         <h3 class="card-description">Detail Penjualan 1</h3>
-                        <div class="form-group row">
-                            <label class="col-sm-3 col-form-label">Nama Produk</label>
-                            <div class="col-sm-9">
-                                <select class="form-control produk" name="produk">
-                                    <option value="" selected></option>
-                                    {% for i in produkobj %}
-                                    <option value="{{i.id_produk}}">{{i}}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
+                        <div class="form-group">
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Scan QR Komoditas</label>
+                        <div class="col-sm-9">
+                            <input type="text" id="scan_qr_input" class="form-control" placeholder="Scan QR dari produk" autofocus>
+                        </div>
                         </div>
 
-                        <div class="form-group row">
-                            <label class="col-sm-3 col-form-label">Nama Komoditas</label>
-                            <div class="col-sm-9">
-                                <select class="form-control" name="komoditas">
-                                    <option value="" selected></option>
-                                    {% for i in komoditasobj %}
-                                    <option value="{{i.id_komoditas}}">{{i}}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
+                        <!-- Hasil parsing QR akan ditampilkan di sini -->
+                    <div id="qr-scan-result"></div>
 
-                        <div class="form-group row">
-                            <label class="col-sm-3 col-form-label">Kuantitas Produk</label>
-                            <div class="col-sm-9">
-                                <input class="form-control" type="number" name="kuantitasp">
-                            </div>
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Nama Produk</label>
+                        <div class="col-sm-9">
+                            <select class="form-control produk" name="produk">
+                                <option value="" selected></option>
+                                {% for i in produkobj %}
+                                <option value="{{i.id_produk}}">{{i}}</option>
+                                {% endfor %}
+                            </select>
                         </div>
+                    </div>
 
-                        <div class="form-group row">
-                            <label class="col-sm-3 col-form-label">Kuantitas Komoditas</label>
-                            <div class="col-sm-9">
-                                <input class="form-control" type="number" name="kuantitask">
-                            </div>
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Nama Komoditas</label>
+                        <div class="col-sm-9">
+                            <select class="form-control nama_komoditas" name="komoditas">
+                                <option value="" selected></option>
+                                {% for i in komoditasobj %}
+                                <option value="{{i.id_komoditas}}">{{i}}</option>
+                                {% endfor %}
+                            </select>
                         </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Grade Produk</label>
+                        <div class="col-sm-9">
+                            <input class="form-control grade_komoditas" type="text" name="grade">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Tanggal Kadaluwarsa Produk</label>
+                        <div class="col-sm-9">
+                            <input  class="form-control tanggal_kadaluarsa" type="date" name="kadaluwarsa">
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Stock Produk</label>
+                        <div class="col-sm-9" >
+                            <span class="stok-info stock_produk">-</span>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Kuantitas Produk</label>
+                        <div class="col-sm-9">
+                            <input class="form-control" type="number" name="kuantitasp">
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label class="col-sm-3 col-form-label">Kuantitas Komoditas</label>
+                        <div class="col-sm-9">
+                            <input class="form-control" type="number" name="kuantitask">
+                        </div>
+                    </div>
 
                         <button type="button" class="btn btn-danger" onclick="deleterow(this)">
                             <i class="mdi mdi-close btn-icon-prepend"></i>Delete</button>
@@ -117,14 +150,45 @@
             </div>
 
             <div class="form-group row">
+                <label class="col-sm-3 col-form-label">Scan QR Komoditas</label>
+                <div class="col-sm-9">
+                    <input type="text" id="scan_qr_input" class="form-control" placeholder="Scan QR dari produk" autofocus>
+                </div>
+                </div>
+
+                <!-- Hasil parsing QR akan ditampilkan di sini -->
+            <div id="qr-scan-result"></div>
+
+            <div class="form-group row">
                 <label class="col-sm-3 col-form-label">Nama Komoditas</label>
                 <div class="col-sm-9">
-                    <select class="form-control" name="komoditas">
+                    <select class="form-control" name="komoditas" id="nama_komoditas">
                         <option value="" selected></option>
                         {% for i in komoditasobj %}
                         <option value="{{i.id_komoditas}}">{{i}}</option>
                         {% endfor %}
                     </select>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label class="col-sm-3 col-form-label">Grade Produk</label>
+                <div class="col-sm-9">
+                    <input class="form-control" type="text" name="grade" id="grade_komoditas">
+                </div>
+            </div>
+            
+            <div class="form-group row">
+                <label class="col-sm-3 col-form-label">Tanggal Kadaluwarsa Produk</label>
+                <div class="col-sm-9">
+                    <input class="form-control" type="date" name="kadaluwarsa" id="tanggal_kadaluarsa">
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label class="col-sm-3 col-form-label">Stock Produk</label>
+                <div class="col-sm-9" >
+                    <input class="stok-info" id="stock_produk">-</input>
                 </div>
             </div>
 
@@ -141,6 +205,7 @@
                     <input class="form-control" type="number" name="kuantitask">
                 </div>
             </div>
+
 
             <button type="button" class="btn btn-danger" onclick="deleterow(this)">
                             <i class="mdi mdi-close btn-icon-prepend"></i>Delete</button>
@@ -159,6 +224,40 @@
             detail.querySelector('h3').textContent = `Detail Penjualan ${index + 1}`;
         });
     }
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const qrInput = document.getElementById("scan_qr_input");
+
+  qrInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const scannedText = qrInput.value.trim();
+      const parts = scannedText.split("|");
+
+      if (parts.length !== 4) {
+        alert("Format QR tidak sesuai: komoditas|grade|kadaluarsa|kuantitas");
+        qrInput.value = "";
+        return;
+      }
+
+      const [komoditas, grade, kadaluarsa, kuantitas] = parts;
+
+      // Masukkan ke hidden input agar ikut disubmit
+      const container = document.createElement("div");
+      container.innerHTML = `
+        <input type="hidden" name="qr_komoditas" value="${komoditas}">
+        <input type="hidden" name="qr_grade" value="${grade}">
+        <input type="hidden" name="qr_kadaluarsa" value="${kadaluarsa}">
+        <input type="hidden" name="qr_kuantitas" value="${kuantitas}">
+        <p><strong>${komoditas}</strong> | Grade: ${grade} | Exp: ${kadaluarsa} | Qty: ${kuantitas}</p>
+      `;
+      document.getElementById("qr-scan-result").appendChild(container);
+
+      qrInput.value = ""; // kosongkan input untuk QR selanjutnya
+    }
+  });
+});
 </script>
 
 {% endblock %}
