@@ -16,20 +16,20 @@
 
     <div>
         <label for="filter-komoditas">Filter Komoditas:</label>
-    <select id="filter-komoditas">
-        <option value="">Semua</option>
-        {% for komoditas in komoditas_list %}
-            <option value="{{ komoditas }}">{{ komoditas }}</option>
-        {% endfor %}
-    </select>
+        <select id="filter-komoditas">
+            <option value="">Semua</option>
+            {% for komoditas in komoditas_list %}
+                <option value="{{ komoditas }}">{{ komoditas }}</option>
+            {% endfor %}
+        </select>
 
-    <label for="filter-tanggal">Filter Tanggal:</label>
-    <select id="filter-tanggal">
-        <option value="">Semua</option>
-        {% for tanggal in tanggal_list %}
-            <option value="{{ tanggal }}">{{ tanggal }}</option>
-        {% endfor %}
-    </select>
+        <label for="filter-grade"></label>
+        <div id="filter-grade">
+        </div>
+
+        <label for="filter-tanggal"></label>
+        <div id="filter-tanggal">
+        </div>
     </div>
 
     <div class="row">
@@ -41,6 +41,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Komoditas</th>
+                                <th>Grade</th>
                                 <th>tanggal panen</th>
                                 <th>batch</th>
                                 <th>Tanggal Kadaluwarsa</th>
@@ -54,6 +55,7 @@
                                 data-grade="{{ item.grade }}"
                                 data-tanggal="{{ item.tanggal_kadaluwarsa }}">
                                 <td>{{ item.komoditas }}</td>
+                                <td>{{ item.grade }}</td>
                                 <td>{{ item.tanggal_panen }}</td>
                                 <td>{{ item.batch }}</td>
                                 <td>{{ item.tanggal_kadaluwarsa }}</td>
