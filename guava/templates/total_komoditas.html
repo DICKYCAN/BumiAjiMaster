@@ -77,15 +77,18 @@
 
     <script>
         const filterKomoditas = document.getElementById("filter-komoditas");
+        const filterGrade = document.getElementById("filter-grade");
         const filterTanggal = document.getElementById("filter-tanggal");
         const rows = document.querySelectorAll("#datatotal tbody tr");
 
         function applyFilter() {
             const komoditas = filterKomoditas.value;
+            const grade = filterGrade.value;
             const tanggal = filterTanggal.value;
 
             rows.forEach(row => {
                 const matchKomoditas = !komoditas || row.dataset.komoditas === komoditas;
+                const matchGrade = !grade || row.dataset.grade === grade;
                 const matchTanggal = !tanggal || row.dataset.tanggal === tanggal;
 
                 row.style.display = (matchKomoditas && matchGrade && matchTanggal) ? "" : "none";
@@ -93,6 +96,7 @@
         }
 
         filterKomoditas.addEventListener("change", applyFilter);
+        filterGrade.addEventListener("change", applyFilter);
         filterTanggal.addEventListener("change", applyFilter);
     </script>
     <script>
@@ -118,22 +122,7 @@
                 });
             });
         });
-    </script>
-    <script>
-        // Ambil semua baris
-        const tbody = document.querySelector("#datatotal tbody");
-        const rowsArray = Array.from(tbody.querySelectorAll("tr"));
-
-        // Sort berdasarkan tanggal kadaluarsa (data-tanggal)
-        rowsArray.sort((a, b) => {
-            const dateA = new Date(a.dataset.tanggal);
-            const dateB = new Date(b.dataset.tanggal);
-            return dateA - dateB; // ascending: paling baru dulu
-        });
-
-        // Masukkan kembali ke tbody
-        rowsArray.forEach(row => tbody.appendChild(row));
-    </script>
+        </script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 
 
