@@ -1,0 +1,75 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active " aria-current="page" >
+                <a class="text-muted" href="{% url 'read_cost_detail' %}">Data Cost Detail</a>
+            </li>
+            <li class="breadcrumb-item " ><a href="">Update Cost Detail</a></li>
+        </ol>
+    </nav>
+</div>
+
+<div class="col-12 grid-margin stretch-card">
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title">Update Data</h3>
+            <form class="form-sample" method="post">
+                {% csrf_token %}
+
+                <!-- Cost Type -->
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label" for="cost_type_name">Cost Type</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" name="cost_type_name" id="cost_type_name">
+                            {% for item in all_cost_types %}
+                                <option value="{{item.cost_type_name}}" 
+                                    {% if item.cost_type_id == cost_detail.cost_type_id %} selected {% endif %}>
+                                    {{item.cost_type_name}}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Cost Name -->
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label" for="cost_name">Cost Name</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="text" 
+                               value="{{cost_detail.cost_name}}" 
+                               name="cost_name" id="cost_name" required>
+                    </div>
+                </div>
+
+                <!-- Date -->
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label" for="date">Date</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="date" 
+                               value="{{date}}" 
+                               name="date" id="date" required>
+                    </div>
+                </div>
+
+                <!-- Cost Amount -->
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label" for="cost_amount">Cost Amount</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="number" 
+                               value="{{cost_detail.cost_amount}}" 
+                               name="cost_amount" id="cost_amount" required>
+                    </div>
+                </div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn btn-primary mr-2">Submit</button> 
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

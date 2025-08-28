@@ -1,0 +1,71 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">Data Production</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item "><a href="{% url 'read_production' %}">Data Production</a></li>
+          {% if is_owner or is_admin or is_production %}
+          <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'create_production' %}">Create Production</a></li>
+          {% endif %}
+        </ol>
+      </nav>
+</div>
+   
+<div class="row">
+    
+        <div class="col-lg-12 grid-margin stretch-card">
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table  class="table table-bordered text-center" id="datapartner" >
+                            <thead class="table-light ">
+                                <tr>
+                                    <th>No</th>
+                                    <th>Product Name</th>
+                                    <th>Product Status</th>
+                                    <th>Date</th>
+                                    <th>Quantity</th>
+                                    {% if is_owner or is_admin or is_production %}
+                                    <th>Action</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody class="table-dark">
+                                {% for item in production_details %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ item.product_id.product_name }}</td>
+                                    <td>{{ item.product_status }}</td>
+                                    <td>{{ item.production_id.date }}</td>
+                                    <td>{{ item.product_quantity }}</td>
+                                    {% if is_owner or is_admin or is_production %}
+                                    <td>
+                                        <a href="{% url 'update_product' item.production_detail_id %}">
+                                            <button class="btn btn-inverse-warning">Update</button>
+                                        </a>
+                                        {% if is_owner %}
+                                        <a href="{% url 'delete_product' item.production_detail_id %}">
+                                            <button class="btn btn-inverse-danger">Delete</button>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No production data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+</div>
+    
+{% endblock %}

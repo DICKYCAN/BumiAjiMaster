@@ -17,15 +17,15 @@
             <form class="form-sample" method="post">
                 {% csrf_token %}
                 <div class="form-group row">
-                    <label for="nama_grade" class="col-sm-3 col-form-label">Jenis Grade</label>
+                    <label for="grade_name" class="col-sm-3 col-form-label">Grade Type</label>
                     <div class="col-sm-9">
-                        <input value="{{getgradeobj.nama_grade}}" class="form-control" placeholder="Nama Grade" type="text" name="nama_grade" id="nama_grade">
+                        <input value="{{gradeobj.grade_name}}" class="form-control" placeholder="Grade Name" type="text" name="grade_name" id="grade_name">
                     </div>
                 </div>
                 <div class="form-group row">
-                    <label for="nama_grade" class="col-sm-3 col-form-label">Deskripsi</label>
+                    <label for="grade_name" class="col-sm-3 col-form-label">description</label>
                     <div class="col-sm-9">
-                        <input value="{{getgradeobj.deskrisi_grade}}" class="form-control" placeholder="Deskripsi" type="text" name="deskripsi" id="deskripsi">
+                        <input value="{{gradeobj.grade_description}}" class="form-control" placeholder="Description" type="text" name="grade_description" id="grade_description">
                     </div>
                 </div>
                 <button type="submit"class="btn btn-primary mr-2">Submit</button>

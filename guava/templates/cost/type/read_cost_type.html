@@ -1,0 +1,52 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Data Cost Type</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item "><a href="{% url 'read_cost_type' %}">Data Cost Type</a></li>
+          {% if is_owner %}
+          <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'create_cost_type' %}">Create Cost Type</a></li>
+          {% endif %}
+        </ol>
+      </nav>
+</div>
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="datacosttype">
+                        <thead class="table-light">
+                            <tr class="text-center">
+                                <th >No</th>
+                                <th>Cost Type</th>
+                                {% if is_owner %}
+                                <th>Action</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody class="table-dark">
+                            {% for item in cost_types %}
+                            <tr class="text-center">
+                                <td>{{forloop.counter}}</td>
+                                <td>{{item}}</td>
+                                {% if is_owner %}
+                                <td>
+                                    <a href="{% url 'update_cost_type' item.cost_type_id %}"><button class="btn btn-inverse-warning"><i class="mdi mdi-reload btn-icon-prepend align-middle"></i>Update</button></a>
+                
+                                    <a href="{% url 'delete_cost_type' item.cost_type_id %}"><Button class="btn btn-inverse-danger"><i class="mdi mdi-close btn-icon-prepend align-middle"></i>Delete</Button></a>
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Update sales data</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active" aria-current="page"><a class="text-muted" href="{% url 'read_sale' %}">Data sales</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'update_sale' id %}">Update sales</a></li>
+        </ol>
+    </nav>
+</div>
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <form class="form-sample" method="post">
+                {% csrf_token %}
+                <h1>sales {{id}}</h1>
+
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label">ID sales</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" name="market_id">
+                            {% for i in market_obj %}
+                            {% if i.market_name == market_id %}
+                            <option selected value="{{i.market_id}}">{{i.market_id}}</option>
+                            {% else %}
+                            <option value="{{i.market_id}}">{{i.market_id}}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label">Date</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="date" name="date" value="{{sale_date}}" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success btn-icon-text">
+                    <i class="mdi mdi-file-check btn-icon-prepend"></i> Submit </button>
+            </form>
+{% endblock %}

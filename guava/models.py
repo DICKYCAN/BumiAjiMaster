@@ -2,145 +2,160 @@ from django.db import models
 from django.contrib.auth.models import User
 
 # Create your models here.
-class mitra(models.Model) :
-    id_mitra = models.AutoField(primary_key=True)
-    nama_mitra = models.CharField(max_length=100)
-    alamat_mitra = models.TextField(blank=True,null=True)
-    nohp_mitra = models.PositiveBigIntegerField()
-    tanggalawal_mitra = models.DateField()
-    durasi_kontrak = models.PositiveIntegerField()
-    luas_lahan = models.PositiveIntegerField(null=True)
-    status_mitra = models.BooleanField(default=None, null=True)
-    minimal_kuantitas = models.PositiveIntegerField()
+class Partner(models.Model):
+    partner_id = models.AutoField(primary_key=True)
+    partner_name = models.CharField(max_length=100)
+    partner_address = models.TextField(blank=True, null=True)
+    partner_phone = models.PositiveBigIntegerField()
+    start_date = models.DateField()
+    contract_duration = models.PositiveIntegerField()
+    land_area = models.PositiveIntegerField(null=True)
+    partner_status = models.BooleanField(default=None, null=True)
+    min_quantity = models.PositiveIntegerField()
     email = models.EmailField()
 
-    def __str__(self) :
-        return str(self.nama_mitra)
+    def __str__(self):
+        return str(self.partner_name)
 
-class grade(models.Model) :
-    id_grade = models.AutoField(primary_key=True)
-    nama_grade = models.CharField(max_length=100)
-    deskripsi_grade = models.TextField(blank=True,null=True)
 
-    def __str__(self) :
-        return str(self.nama_grade)
-    
-class komoditas(models.Model) :
-    id_komoditas = models.AutoField(primary_key=True)
-    id_grade = models.ForeignKey(grade,on_delete=models.CASCADE)
-    nama_komoditas = models.CharField(max_length=100)
-    harga_beli = models.IntegerField()
-    harga_jual = models.IntegerField()
+class Grade(models.Model):
+    grade_id = models.AutoField(primary_key=True)
+    grade_name = models.CharField(max_length=100)
+    grade_description = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.nama_komoditas} - {self.id_grade.nama_grade}"
+        return str(self.grade_name)
 
-class produk(models.Model) :
-    id_produk = models.AutoField(primary_key=True)
-    nama_produk = models.CharField(max_length=100)
-    satuan_produk = models.CharField(max_length=100)
-    harga_produk = models.PositiveIntegerField()
-    
-    def __str__(self) :
-        return str(self.nama_produk)
 
-class panenmitra(models.Model) :
-    idpanen_mitra = models.AutoField(primary_key=True)
-    id_mitra = models.ForeignKey(mitra,on_delete=models.CASCADE)
-    tanggal_panen = models.DateField()
-    
-    def __str__(self) :
-        return str(self.id_mitra.nama_mitra)
+class Commodity(models.Model):
+    commodity_id = models.AutoField(primary_key=True)
+    grade_id = models.ForeignKey(Grade, on_delete=models.CASCADE)
+    commodity_name = models.CharField(max_length=100)
+    purchase_price = models.IntegerField()
+    selling_price = models.IntegerField()
 
-class detailpanenmitra(models.Model) :
-    iddetailpanen_mitra = models.AutoField(primary_key=True)
-    idpanen_mitra = models.ForeignKey(panenmitra,on_delete=models.CASCADE)
-    id_komoditas = models.ForeignKey(komoditas, on_delete=models.CASCADE)
+    def __str__(self):
+        return f"{self.commodity_name} - {self.grade_id.grade_name}"
+
+
+class Product(models.Model):
+    product_id = models.AutoField(primary_key=True)
+    product_name = models.CharField(max_length=100)
+    product_unit = models.CharField(max_length=100)
+    product_price = models.PositiveIntegerField()
+
+    def __str__(self):
+        return str(self.product_name)
+
+
+class PartnerHarvest(models.Model):
+    partner_harvest_id = models.AutoField(primary_key=True)
+    partner_id = models.ForeignKey(Partner, on_delete=models.CASCADE)
+    harvest_date = models.DateField()
+
+    def __str__(self):
+        return str(self.partner_id.partner_name)
+
+
+class PartnerHarvestDetail(models.Model):
+    partner_harvest_detail_id = models.AutoField(primary_key=True)
+    partner_harvest_id = models.ForeignKey(PartnerHarvest, on_delete=models.CASCADE)
+    commodity_id = models.ForeignKey(Commodity, on_delete=models.CASCADE)
     batch = models.PositiveIntegerField()
-    tanggal_kadaluwarsa = models.DateField()
-    kuantitas = models.PositiveIntegerField()
+    expiry_date = models.DateField()
+    quantity = models.PositiveIntegerField()
 
-    def __str__(self) :
-        return "{} - {}".format(self.idpanen_mitra,self.batch)
-    
-class panenlokal(models.Model) :
-    idpanen_lokal = models.AutoField(primary_key=True)
-    tanggal_panen = models.DateField()
-    
-    def __str__(self) :
-        return str(self.idpanen_lokal)
-   
-class detailpanenlokal(models.Model) :
-    iddetailpanen_lokal = models.AutoField(primary_key=True)
-    idpanen_lokal = models.ForeignKey(panenlokal,on_delete=models.CASCADE)
-    id_komoditas = models.ForeignKey(komoditas, on_delete=models.CASCADE)
+    def __str__(self):
+        return "{} - {}".format(self.partner_harvest_id, self.batch)
+
+
+class LocalHarvest(models.Model):
+    local_harvest_id = models.AutoField(primary_key=True)
+    harvest_date = models.DateField()
+
+    def __str__(self):
+        return str(self.local_harvest_id)
+
+
+class LocalHarvestDetail(models.Model):
+    local_harvest_detail_id = models.AutoField(primary_key=True)
+    local_harvest_id = models.ForeignKey(LocalHarvest, on_delete=models.CASCADE)
+    commodity_id = models.ForeignKey(Commodity, on_delete=models.CASCADE)
     batch = models.PositiveIntegerField()
-    tanggal_kadaluwarsa = models.DateField()
-    kuantitas = models.PositiveIntegerField(null=True)
+    expiry_date = models.DateField()
+    quantity = models.PositiveIntegerField(null=True)
 
-    def __str__(self) :
-        return "{} - {}".format(self.idpanen_lokal,self.batch)
+    def __str__(self):
+        return "{} - {}".format(self.local_harvest_id, self.batch)
 
-class pasar(models.Model) :
-    id_pasar = models.AutoField(primary_key=True)
-    nama_pasar = models.CharField(max_length=100)
-    alamat_pasar = models.TextField(null=True,blank=True)
 
-    def __str__(self) :
-        return str(self.nama_pasar)
-    
-class penjualan(models.Model) :
-    id_penjualan = models.AutoField(primary_key=True)
-    id_pasar = models.ForeignKey(pasar,on_delete=models.CASCADE)
-    tanggal = models.DateField()
+class Market(models.Model):
+    market_id = models.AutoField(primary_key=True)
+    market_name = models.CharField(max_length=100)
+    market_address = models.TextField(null=True, blank=True)
 
-    def __str__(self) :
-        return str(self.id_pasar)
+    def __str__(self):
+        return str(self.market_name)
 
-class detailpenjualan(models.Model):
-    iddetail_penjualan = models.AutoField(primary_key=True)
-    id_penjualan = models.ForeignKey(penjualan,on_delete=models.CASCADE)
-    id_produk = models.ForeignKey(produk,null=True,on_delete=models.CASCADE)
-    id_komoditas = models.ForeignKey(komoditas,null=True,on_delete=models.CASCADE)
-    kuantitas_komoditas = models.PositiveIntegerField(null=True)
-    kuantitas_produk = models.PositiveIntegerField(null=True)
 
-    def __str__(self) :
-        return str(self.id_penjualan)
+class Sale(models.Model):
+    sale_id = models.AutoField(primary_key=True)
+    market_id = models.ForeignKey(Market, on_delete=models.CASCADE)
+    date = models.DateField()
 
-class produksi(models.Model) :
-    id_produksi = models.AutoField(primary_key=True)
-    tanggal = models.DateField()
-    
+    def __str__(self):
+        return str(self.market_id)
 
-    def __str__(self) :
-        return str(self.tanggal)
 
-class detailproduksi(models.Model):
-    iddetail_produksi = models.AutoField(primary_key=True)
-    id_produk = models.ForeignKey(produk,on_delete=models.CASCADE)
-    id_produksi = models.ForeignKey(produksi, on_delete=models.CASCADE)
-    kuantitas_produk = models.PositiveIntegerField()
-    status_produk = models.CharField(max_length=100,null=True)
-    def __str__(self) :
-        return "{} - {}".format(self.id_produk,self.status_produk)
-    
-class jenisbiaya(models.Model) :
-    idjenisbiaya = models.AutoField(primary_key=True)
-    jenis_biaya = models.CharField(max_length=100)
+class SaleDetail(models.Model):
+    sale_detail_id = models.AutoField(primary_key=True)
+    sale_id = models.ForeignKey(Sale, on_delete=models.CASCADE)
+    product_id = models.ForeignKey(Product, null=True, on_delete=models.CASCADE)
+    commodity_id = models.ForeignKey(Commodity, null=True, on_delete=models.CASCADE)
+    commodity_quantity = models.PositiveIntegerField(null=True)
+    product_quantity = models.PositiveIntegerField(null=True)
 
-    def __str__(self) :
-        return str(self.jenis_biaya)
-    
-class biaya(models.Model) :
-    idbiaya = models.AutoField(primary_key=True)
-    idjenisbiaya = models.ForeignKey(jenisbiaya,on_delete=models.CASCADE)
-    tanggal = models.DateField()
-    nama_biaya = models.CharField(max_length=100)
-    nominal_biaya = models.PositiveIntegerField()
+    def __str__(self):
+        return str(self.sale_id)
 
-    def __str__(self) :
-        return "{} - {}".format(self.idjenisbiaya,self.nama_biaya)
+
+class Production(models.Model):
+    production_id = models.AutoField(primary_key=True)
+    date = models.DateField()
+
+    def __str__(self):
+        return str(self.date)
+
+
+class ProductionDetail(models.Model):
+    production_detail_id = models.AutoField(primary_key=True)
+    product_id = models.ForeignKey(Product, on_delete=models.CASCADE)
+    production_id = models.ForeignKey(Production, on_delete=models.CASCADE)
+    product_quantity = models.PositiveIntegerField()
+    product_status = models.CharField(max_length=100, null=True)
+
+    def __str__(self):
+        return "{} - {}".format(self.product_id, self.product_status)
+
+
+class CostType(models.Model):
+    cost_type_id = models.AutoField(primary_key=True)
+    cost_type_name = models.CharField(max_length=100)
+
+    def __str__(self):
+        return str(self.cost_type_name)
+
+
+class Cost(models.Model):
+    cost_id = models.AutoField(primary_key=True)
+    cost_type_id = models.ForeignKey(CostType, on_delete=models.CASCADE)
+    date = models.DateField()
+    cost_name = models.CharField(max_length=100)
+    cost_amount = models.PositiveIntegerField()
+
+    def __str__(self):
+        return "{} - {}".format(self.cost_type_id, self.cost_name)
+
 
 class ActivityLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)

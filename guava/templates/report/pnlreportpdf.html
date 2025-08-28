@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        @page{
+            size: 'A4';
+            margin: 2.5cm 1.5cm 3.5cm 1.5cm;
+        }
+        table, td, th {
+            border: 1px solid;
+            text-align: center;
+            }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            }
+    </style>
+</head>
+<body>
+
+    <h1>Profit And Loss Report</h1>
+    <h3 style="text-align: center;">Month {{month}} </h3>
+    <table>
+        <tr>
+            <th>Total Revenue</th>
+            <th></th>
+            <th></th>
+        </tr>
+        <tr>
+            <td align="left">Sales</td>
+            <td>Rp. {{ total_revevnue }}</td>
+            <td></td>
+        </tr>
+        <tr>
+            <td align="left">Other Cost</td>
+            <td>Rp. 0 </td>
+            <td></td>
+        </tr>
+        <tr>
+            <td align="right">Total Revenue</td>
+            <td></td>
+            <td>Rp. {{ total_revevnue }}</td>
+        </tr>
+        <tr>
+            <th 
+             align="left">Production COGS</th>
+            <td ></td>
+            <td >Rp{{ production_cogs }}</td>
+        </tr>
+        <tr>
+            <td align="left">Sales COGS</td>
+            <td></td>
+            <td>Rp. {{ sales_cogs }}</td>
+        </tr>
+        <tr>
+            <td align="left">Gross Profit</td>
+            <td></td>
+            <td>Rp. {{ gross_profit }}</td>
+        </tr>
+        <tr></tr>
+        <tr>
+            <th>Operating Expenses</th>
+            <th></th>
+            <th></th>
+        </tr>
+        
+        {% for key,value in operating_expenses.items %}
+        <tr>
+            <td >{{key}}</td>
+            <td >Rp{{value}}</td>
+            <td ></td>
+        </tr>
+        {% endfor %}
+        <tr>
+            <th align="left">Total Cost</th>
+            <td></td>
+            <td>Rp. {{ total_operating_expenses }}</td>
+        </tr>
+
+        <tr>
+            <th align="left">Profit Before tax</th>
+            <td></td>
+            <td>Rp. {{ gross profit }}</td>
+        </tr>
+        <tr>
+            <th align="left">Income Tax</th>
+            <td>Rp. {{ income_tax }}</td>
+            <td></td>
+        </tr>
+        <tr>
+            <th align="left">Net Income</th>
+            <td></td>
+            <td>Rp. {{ net_income }}</td>
+        </tr>
+    </table>
+
+</body>
+
+</html>

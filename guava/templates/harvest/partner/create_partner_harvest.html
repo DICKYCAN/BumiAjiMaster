@@ -1,0 +1,155 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Create Partner Harvest</h1>
+    <nav aria-label="breadcrumb">
+        <div class="mr2">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item active" aria-current="page">
+                    <a class="text-muted" href="{% url 'read_partner_harvest' %}">Data Partner Harvest</a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">
+                    <a class="text-muted" href="{% url 'read_partner_weight' %}">Accumulation</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{% url 'create_partner_harvest' %}">Create Partner Harvest</a>
+                </li>
+            </ol>
+        </div>
+    </nav>
+</div>
+
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <form class="form-sample" method="post">
+                    {% csrf_token %}
+                    <div class="form-group row">
+                        <label for="partner_name" class="col-sm-3 col-form-label">Partner Name</label>
+                        <div class="col-sm-9">
+                            <select class="form-control" name="partner_name" id="partner_name" required>
+                                {% for item in all_partners %}
+                                <option value="{{ item.partner_id }}">{{ item }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group row">
+                        <label for="harvest_date" class="col-sm-3 col-form-label">Harvest Date</label>
+                        <div class="col-sm-9">
+                            <input class="form-control" type="date" name="harvest_date" id="harvest_date" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-inverse-success" onclick="addpartnerharvest()">Add</button>
+                        </div>
+                    </div>
+
+                    <div id="adddetail">
+                        <div class="detail-row">
+                            <h3 class="card-title">Detail Partner Harvest 1</h3>
+                            <div class="form-group row">
+                                <label for="commodity" class="col-sm-3 col-form-label">Commodity</label>
+                                <div class="col-sm-9">
+                                    <select class="form-control" name="commodity" required>
+                                        {% for item in all_commodities %}
+                                        <option value="{{ item.commodity_id }}">{{ item }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group row">
+                                <label for="batch" class="col-sm-3 col-form-label">Batch</label>
+                                <div class="col-sm-9">
+                                    <input type="number" name="batch" class="form-control" placeholder="Batch" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="expiry_date" class="col-sm-3 col-form-label">Expiry Date</label>
+                                <div class="col-sm-9">
+                                    <input type="date" name="expiry_date" class="form-control" placeholder="expiry_date" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="quantity" class="col-sm-3 col-form-label">Quantity</label>
+                                <div class="col-sm-9">
+                                    <input type="number" name="quantity" class="form-control commodity" placeholder="quantity" required>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-inverse-danger" type="button" onclick="deleterow(this)">Delete</button>
+                        </div>
+                    </div>
+                    <br>
+                    <button class="btn btn-primary" type="submit">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% block javascripts %}
+<script>
+    function addpartnerharvest() {
+        const rows = document.querySelectorAll('#adddetail .detail-row');
+        const angka = rows.length + 1;
+        const baris = document.createElement('div');
+        baris.className = 'detail-row mb-4'; // Add margin bottom for spacing
+        baris.innerHTML = `
+            <h3 class="card-title">Detail Partner Harvest ${angka}</h3>
+            <div class="form-group row">
+                <label for="commodity" class="col-sm-3 col-form-label">commodity</label>
+                <div class="col-sm-9">
+                    <select class="form-control" name="commodity" required>
+                        {% for item in allcommodity %}
+                        <option value="{{ item.commodity_id }}">{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="batch" class="col-sm-3 col-form-label">Batch</label>
+                <div class="col-sm-9">
+                    <input type="number" name="batch" class="form-control" placeholder="Batch" required>
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="expiry_date" class="col-sm-3 col-form-label">Expiry Date</label>
+                <div class="col-sm-9">
+                    <input type="date" name="expiry_date" class="form-control" placeholder="expiry_date" required>
+                </div>
+            </div>
+            <div class="form-group row">
+                <label for="quantity" class="col-sm-3 col-form-label">quantity</label>
+                <div class="col-sm-9">
+                    <input type="number" name="quantity" class="form-control commodity" placeholder="Quantity" required>
+                </div>
+            </div>
+            <button class="btn btn-inverse-danger" type="button" onclick="deleterow(this)">Delete</button>
+            <br>
+        `;
+        document.getElementById('adddetail').appendChild(baris);
+        updateRowNumbers();
+    }
+
+    function deleterow(button) {
+        button.closest('.detail-row').remove();
+        updateRowNumbers();
+    }
+
+    function updateRowNumbers() {
+        const rows = document.querySelectorAll('#adddetail .detail-row');
+        rows.forEach((row, index) => {
+            const title = row.querySelector('h3');
+            title.textContent = `Detail Partner Harvest ${index + 1}`;
+        });
+    }
+</script>
+{% endblock javascripts %}
+{% endblock %}

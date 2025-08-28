@@ -21,16 +21,24 @@ from django.shortcuts import render
 from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
 from django.conf import settings
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 
 # Create your views here.
-konversi_produk_to_komoditas = {'Pastry':('Jambu Kristal',0.33),
-            'Teh Bunga Telang' :('Bunga Telang',0.1),
-            'Lemon Kering' :('Lemon',0.2),
-            'Keripik Cale' :('Cale',0.25),
-            'Rujak Jambu Kristal' : ('Jambu Kristal', 0.4)
-            }
-bulan_indo = {
+# Product to Commodity Conversion
+product_to_commodity = {
+    'Pastry': ('Crystal Guava', 0.33),
+    'Blue Pea Tea': ('Blue Pea Flower', 0.1),
+    'Dried Lemon': ('Lemon', 0.2),
+    'Kale Chips': ('Kale', 0.25),
+    'Crystal Guava Salad': ('Crystal Guava', 0.4)
+}
+
+# Month Translation (English → Indonesian)
+month_translation = {
     'January': 'Januari',
     'February': 'Februari',
     'March': 'Maret',
@@ -43,2586 +51,2332 @@ bulan_indo = {
     'October': 'Oktober',
     'November': 'November',
     'December': 'Desember'
-    }
+}
 
-def loginview(request):
+# Authentication Views
+def login_view(request):
     if request.user.is_authenticated:
         group = None
         if request.user.groups.exists():
             group = request.user.groups.all()[0].name
 
-        if group == 'inspeksi':
-            return redirect('readmitra')
+        if group == 'inspection':
+            return redirect('read_partner')
         elif group in ['admin', 'owner']:
             return redirect('base')
-        else :
-            return redirect('read_produksi')
+        else:
+            return redirect('read_production')
     else:
-        return render(request,"base/login.html")
-    
-def performlogin(request):
+        return render(request, "base/login.html")
+
+
+def perform_login(request):
     if request.method != "POST":
         return HttpResponse("Method not Allowed")
     else:
         username_login = request.POST['username']
         password_login = request.POST['password']
-        userobj = authenticate(request, username=username_login,password=password_login)
-        if userobj is not None:
-            login(request, userobj)
-            messages.success(request,"Login success")
-            if userobj.groups.filter(name='admin').exists() or userobj.groups.filter(name='owner').exists():
+        user_obj = authenticate(request, username=username_login, password=password_login)
+
+        if user_obj is not None:
+            login(request, user_obj)
+            messages.success(request, "Login success")
+
+            if user_obj.groups.filter(name='admin').exists() or user_obj.groups.filter(name='owner').exists():
                 return redirect("base")
-            elif userobj.groups.filter(name='inspeksi').exists() :
-                return redirect("readmitra")
-            elif  userobj.groups.filter(name='produksi').exists() :
-                return redirect('read_produksi')
+            elif user_obj.groups.filter(name='inspection').exists():
+                return redirect("read_partner")
+            elif user_obj.groups.filter(name='production').exists():
+                return redirect('read_production')
             else:
                 return redirect('login')
         else:
-            messages.error(request,"Username atau Password salah !!!")
+            messages.error(request, "Invalid username or password!")
             return redirect("login")
 
 
 @login_required(login_url="login")
-def logoutview(request):
+def logout_view(request):
     logout(request)
-    messages.info(request,"Berhasil Logout")
+    messages.info(request, "Successfully logged out")
     return redirect('login')
 
+
 @login_required(login_url="login")
-def performlogout(request):
+def perform_logout(request):
     logout(request)
     return redirect("login")
 
 @login_required(login_url="login")
-@role_required(["owner", 'admin'])  
+@role_required(["owner", 'admin'])
 def base(request):
-    penjualanobj = models.detailpenjualan.objects.all()
-    detailpanenlokal = models.detailpanenlokal.objects.all()
-    detailpanenmitra = models.detailpanenmitra.objects.all()
-    komoditasobj = models.komoditas.objects.all()
-    komoditas_dict = {i : 0 for i in komoditasobj}
+    sale_details = models.SaleDetail.objects.all()
+    local_harvest_details = models.LocalHarvestDetail.objects.all()
+    partner_harvest_details = models.PartnerHarvestDetail.objects.all()
+    commodities = models.Commodity.objects.all()
+    commodity_dict = {i: 0 for i in commodities}
 
-    for panenlokal in detailpanenlokal:
-        komoditas_nama = panenlokal.id_komoditas
-        if komoditas_nama in komoditas_dict:
-            komoditas_dict[komoditas_nama] += panenlokal.kuantitas
-        else:
-            komoditas_dict[komoditas_nama] = panenlokal.kuantitas
+    for local in local_harvest_details:
+        commodity = local.commodity_id
+        commodity_dict[commodity] = commodity_dict.get(commodity, 0) + local.quantity
 
-    for panenmitra in detailpanenmitra:
-        komoditas_nama = panenmitra.id_komoditas
-        if komoditas_nama in komoditas_dict:
-            komoditas_dict[komoditas_nama] += panenmitra.kuantitas
-        else:
-            komoditas_dict[komoditas_nama] = panenmitra.kuantitas
+    for partner in partner_harvest_details:
+        commodity = partner.commodity_id
+        commodity_dict[commodity] = commodity_dict.get(commodity, 0) + partner.quantity
 
-    print(komoditas_dict)
-
-    listkomoditas = list(komoditas_dict.keys())
-    listkuantitaskomoditas = list(komoditas_dict.values())
+    list_commodities = list(commodity_dict.keys())
+    list_quantities = list(commodity_dict.values())
 
     if request.method == 'GET':
         return render(request, 'base/dashboard.html', {
-            'listkomoditas' : listkomoditas,
-            'listkuantitaskomoditas' : listkuantitaskomoditas,
+            'list_commodities': list_commodities,
+            'list_quantities': list_quantities,
         })
-    
-    else :
-        inp = request.POST['grafik']
 
-        listpasar = []
-        listkuantitas = []
-        if inp == 'Produk' :
-            for i in penjualanobj :
-                if i.id_penjualan.id_pasar is not None and i.kuantitas_komoditas :
-                    listpasar.append(i.id_penjualan.id_pasar.nama_pasar)
-                    listkuantitas.append(i.kuantitas_komoditas)
-
-            dict_pasar = {}
-            for a,b in zip(listpasar,listkuantitas) :
-                if a in dict_pasar :
-                    dict_pasar[a] += b
-                else :
-                    dict_pasar[a] = b
-
-            listpasarakhir = list(dict_pasar.keys())
-            listkuantitasakhir = list(dict_pasar.values())
-                
-            
-            return render(request, 'base/dashboard.html', {
-                'listkomoditas' : listkomoditas,
-                'listkuantitaskomoditas' : listkuantitaskomoditas,
-                'listpasar' : listpasarakhir,
-                'listkuantitas' : listkuantitasakhir,
-            })
-
-        elif inp == 'Komoditas' :
-            for i in penjualanobj :
-                if i.id_penjualan.id_pasar is not None and i.kuantitas_produk :
-                    listpasar.append(i.id_penjualan.id_pasar.nama_pasar)
-                    listkuantitas.append(i.kuantitas_produk)
-
-            dict_pasar = {}
-            for a,b in zip(listpasar,listkuantitas) :
-                if a in dict_pasar :
-                    dict_pasar[a] += b
-                else :
-                    dict_pasar[a] = b
-            
-            listpasarakhir = list(dict_pasar.keys())
-            listkuantitasakhir = list(dict_pasar.values())
-            
-            return render(request, 'base/dashboard.html', {
-                'listkomoditas' : listkomoditas,
-                'listkuantitaskomoditas' : listkuantitaskomoditas,
-                'listpasar' : listpasarakhir,
-                'listkuantitas' : listkuantitasakhir,
-            })
-        
-    
-
-# CRUD MITRA
-@login_required(login_url="login")
-@role_required(["owner", 'admin','inspeksi']) 
-def read_mitra(request) :
-    allmitra = models.mitra.objects.all().order_by('tanggalawal_mitra')
-    if not allmitra.exists():
-        messages.error(request, "Data Mitra Tidak Ditemukan!")
-    return render(request,
-                  'mitra/read_mitra.html',
-                  {
-                      'allmitra': allmitra
-                  })
-
-@login_required(login_url="login")
-@role_required(["owner", 'admin']) 
-def create_mitra(request) :
-    
-    if request.method == "GET" :
-        return render(request, 
-                      'mitra/create_mitra.html')
-    else :
-        namamitra = request.POST["nama_mitra"]
-        namamitra = namamitra.lower()
-        mitraobj = models.mitra.objects.filter(nama_mitra=namamitra)
-        
-        if len(mitraobj) >0:
-            messages.error(request,"Nama Mitra Sudah Ada")
-            return redirect("create_mitra")
-        else :
-            alamatmitra = request.POST["alamat_mitra"]
-            nohpmitra = request.POST["nohp_mitra"]
-            tanggalawalmitra = request.POST["tanggalawal_mitra"]
-            durasikontrakmitra = request.POST["durasi_kontrak"]
-            luaslahan = request.POST["luas_lahan"]
-            luaslahan = int(luaslahan)
-            print('luaslahan',luaslahan,"type",type(luaslahan))
-            minimal_kuantitas = request.POST['minimal_kuantitas']
-            status = request.POST["status_mitra"]
-            if status.lower() == "aktif" :
-                statusmitra = True
-            else :
-                statusmitra = False
-            if luaslahan<100 :
-                messages.error(request,"Luas lahan harus lebih dari 100 m^2")
-                return redirect("create_mitra")
-            else :
-                pass
-            data = models.mitra(
-                nama_mitra = namamitra,
-                alamat_mitra = alamatmitra,
-                nohp_mitra = nohpmitra,
-                tanggalawal_mitra = tanggalawalmitra,
-                durasi_kontrak = durasikontrakmitra,
-                luas_lahan = luaslahan,
-                minimal_kuantitas = minimal_kuantitas,
-                status_mitra = statusmitra
-            )
-            data.save()
-            
-            models.ActivityLog(
-                user=request.user,
-                action="Tambah Mitra",
-                description=f"Menambahkan mitra baru: {data.nama_mitra} dengan luas {data.luas_lahan} m², kontrak {data.durasi_kontrak} bulan.",
-            ).save()
-
-            messages.success(request,"Data Mitra Berhasil Ditambahkan!")
-        return redirect("readmitra")
-            
-
-@login_required(login_url="login")
-@role_required(["owner", 'admin']) 
-def update_mitra(request, id):
-    try:
-        getmitraobj = models.mitra.objects.get(id_mitra=id)
-    except models.mitra.DoesNotExist:
-        messages.error(request, "Mitra tidak ditemukan!")
-        return redirect('readmitra')
-
-    tanggal = getmitraobj.tanggalawal_mitra.strftime('%Y-%m-%d')  # Format tanggal
-    statusmitra = 'Aktif' if getmitraobj.status_mitra else 'Tidak Aktif'
-    if request.method == "GET":
-        return render(request, 'mitra/update_mitra.html', {
-            'getmitraobj': getmitraobj,
-            'statusmitra': statusmitra,
-            'tanggal': tanggal
-        })
     else:
-        namamitra = request.POST["nama_mitra"]
-        namamitra = namamitra.lower()
-        if models.mitra.objects.filter(nama_mitra=namamitra).exclude(id_mitra=id).exists():
-            messages.error(request, "Nama Mitra Sudah Ada!")
-            return render(request, 'mitra/update_mitra.html', {
-            'getmitraobj': getmitraobj,
-            'statusmitra': statusmitra,
-            'tanggal': tanggal
+        inp = request.POST['chart']
+        list_markets = []
+        list_quantities = []
+
+        if inp == 'Product':
+            for i in sale_details:
+                if i.sale_id.market_id is not None and i.commodity_quantity:
+                    list_markets.append(i.sale_id.market_id.market_name)
+                    list_quantities.append(i.commodity_quantity)
+
+        elif inp == 'Commodity':
+            for i in sale_details:
+                if i.sale_id.market_id is not None and i.product_quantity:
+                    list_markets.append(i.sale_id.market_id.market_name)
+                    list_quantities.append(i.product_quantity)
+
+        market_dict = {}
+        for a, b in zip(list_markets, list_quantities):
+            market_dict[a] = market_dict.get(a, 0) + b
+
+        final_markets = list(market_dict.keys())
+        final_quantities = list(market_dict.values())
+
+        return render(request, 'base/dashboard.html', {
+            'list_commodities': list_commodities,
+            'list_quantities': list_quantities,
+            'list_markets': final_markets,
+            'list_market_quantities': final_quantities,
         })
-        luaslahan = request.POST["luas_lahan"]
-        luaslahan = int(luaslahan)
-        print('luaslahan',luaslahan,"type",type(luaslahan))
-        if luaslahan<100 :
-            messages.error(request,"Luas lahan harus lebih dari 100 m^2")
-            return render(request, 'mitra/update_mitra.html', {
-            'getmitraobj': getmitraobj,
-            'statusmitra': statusmitra,
-            'tanggal': tanggal})
-        else :
-            pass
-        
-        status_lama = getmitraobj.status_mitra
-        
-        getmitraobj.nama_mitra = namamitra
-        getmitraobj.alamat_mitra = request.POST["alamat_mitra"]
-        getmitraobj.nohp_mitra = request.POST["nohp_mitra"]
-        getmitraobj.tanggalawal_mitra = request.POST["tanggalawal_mitra"]
-        getmitraobj.durasi_kontrak = request.POST["durasi_kontrak"]
-        getmitraobj.luas_lahan = luaslahan
-        getmitraobj.status_mitra = request.POST["status_mitra"].lower() == "aktif"
-        getmitraobj.save()
-        
+
+
+@login_required(login_url="login")
+@role_required(["owner", 'admin','inspection'])
+def read_partner(request):
+    all_partners = models.Partner.objects.all().order_by('start_date')
+    if not all_partners.exists():
+        messages.error(request, "No Partner Data Found!")
+    return render(request, 'partner/read_partner.html', {
+        'all_partners': all_partners
+    })
+
+
+@login_required(login_url="login")
+@role_required(["owner", 'admin'])
+def create_partner(request):
+    if request.method == "GET":
+        return render(request, 'partner/create_partner.html')
+    else:
+        partner_name = request.POST["partner_name"].lower()
+        partner_obj = models.Partner.objects.filter(partner_name=partner_name)
+
+        if partner_obj.exists():
+            messages.error(request, "Partner name already exists")
+            return redirect("create_partner")
+
+        land_area = int(request.POST["land_area"])
+        if land_area < 100:
+            messages.error(request, "Land area must be greater than 100 m²")
+            return redirect("create_partner")
+
+        min_quantity = request.POST['min_quantity']
+        status = request.POST["partner_status"].lower() == "active"
+
+        data = models.Partner(
+            partner_name=partner_name,
+            partner_address=request.POST["partner_address"],
+            partner_phone=request.POST["partner_phone"],
+            start_date=request.POST["start_date"],
+            contract_duration=request.POST["contract_duration"],
+            email = request.POST["email"],
+            land_area=land_area,
+            min_quantity=min_quantity,
+            partner_status=status
+        )
+        data.save()
+
         models.ActivityLog.objects.create(
             user=request.user,
-            action="Update Mitra",
+            action="Add Partner",
+            description=f"Added new partner: {data.partner_name}, land {data.land_area} m², contract {data.contract_duration} months."
+        )
+
+        messages.success(request, "Partner successfully added!")
+        return redirect("read_partner")
+
+
+@login_required(login_url="login")
+@role_required(["owner", 'admin'])
+def update_partner(request, id):
+    try:
+        partner_obj = models.Partner.objects.get(partner_id=id)
+    except models.Partner.DoesNotExist:
+        messages.error(request, "Partner not found!")
+        return redirect('read_partner')
+
+    start_date = partner_obj.start_date.strftime('%Y-%m-%d')
+    partner_status = 'Active' if partner_obj.partner_status else 'Inactive'
+
+    if request.method == "GET":
+        return render(request, 'partner/update_partner.html', {
+            'partner_obj': partner_obj,
+            'partner_status': partner_status,
+            'start_date': start_date
+        })
+    else:
+        partner_name = request.POST["partner_name"].lower()
+        if models.Partner.objects.filter(partner_name=partner_name).exclude(partner_id=id).exists():
+            messages.error(request, "Partner name already exists!")
+            return render(request, 'partner/update_partner.html', {
+                'partner_obj': partner_obj,
+                'partner_status': partner_status,
+                'start_date': start_date
+            })
+
+        land_area = int(request.POST["land_area"])
+        if land_area < 100:
+            messages.error(request, "Land area must be greater than 100 m²")
+            return render(request, 'partner/update_partner.html', {
+                'partner_obj': partner_obj,
+                'partner_status': partner_status,
+                'start_date': start_date
+            })
+
+        old_status = partner_obj.partner_status
+
+        partner_obj.partner_name = partner_name
+        partner_obj.partner_address = request.POST["partner_address"]
+        partner_obj.partner_phone = request.POST["partner_phone"]
+        partner_obj.start_date = request.POST["start_date"]
+        partner_obj.contract_duration = request.POST["contract_duration"]
+        partner_obj.land_area = land_area
+        partner_obj.partner_status = request.POST["partner_status"].lower() == "active"
+        partner_obj.save()
+
+        models.ActivityLog.objects.create(
+            user=request.user,
+            action="Update Partner",
             description=(
-                f"Memperbarui data mitra: {getmitraobj.nama_mitra},\n "
-                f"Alamat: {getmitraobj.alamat_mitra},\n "
-                f"Status: {status_lama} menjadi {'Aktif' if getmitraobj.status_mitra else 'Tidak Aktif'}.\n"
+                f"Updated partner: {partner_obj.partner_name},\n"
+                f"Address: {partner_obj.partner_address},\n"
+                f"Status: {old_status} → {'Active' if partner_obj.partner_status else 'Inactive'}.\n"
             )
         )
-        messages.success(request, "Mitra berhasil diperbarui!")
-        return redirect('readmitra')
-            
+
+        messages.success(request, "Partner successfully updated!")
+        return redirect('read_partner')
+
+
 @login_required(login_url="login")
-@role_required(["owner"])     
-def delete_mitra(request, id):
-    getmitraobj = models.mitra.objects.get(id_mitra=id)
-    nama = getmitraobj.nama_mitra
-    alamat = getmitraobj.alamat_mitra
-    nohp = getmitraobj.nohp_mitra
+@role_required(["owner"])
+def delete_partner(request, id):
+    partner_obj = models.Partner.objects.get(partner_id=id)
+    name = partner_obj.partner_name
+    address = partner_obj.partner_address
+    phone = partner_obj.partner_phone
 
-    models.ActivityLog(
+    models.ActivityLog.objects.create(
         user=request.user,
-        action="Hapus Mitra",
-        description=f"Menghapus mitra: {nama}, Alamat: {alamat}, No HP: {nohp}."
-    ).save()
+        action="Delete Partner",
+        description=f"Deleted partner: {name}, Address: {address}, Phone: {phone}."
+    )
 
-    getmitraobj.delete()
-    messages.success(request, "Data berhasil dihapus!")
-    return redirect('readmitra')
+    partner_obj.delete()
+    messages.success(request, "Partner successfully deleted!")
+    return redirect('read_partner')
+
 
 '''CRUD PENJUALAN'''
-# @login_required(login_url='login')
-# @role_required(['owner', 'admin'])
-# def create_penjualan(request) :
-#     #Data yang harus diambil sebelum masuk ke 'get'/'post'
-#     # detailpanenlobj = 
-#     pasarobj = models.pasar.objects.all()
-#     produkobj = models.produk.objects.all()
-#     komoditasobj = models.komoditas.objects.all()
-#     if request.method == 'GET' :
-#         return render(request, 'penjualan/create_penjualan.html',{
-#             'pasarobj' : pasarobj,
-#             'produkobj' : produkobj,
-#             'komoditasobj' : komoditasobj,
-#         })
-    
-#     else :
-#         #Mengambil data yang ingin di 'post' dari input html
-#         pasar = request.POST['pasar']
-#         tanggal = request.POST['tanggal']
-#         kuantitasp = request.POST.getlist('kuantitasp')
-#         kuantitask = request.POST.getlist('kuantitask')
-#         produk = request.POST.getlist('produk')
-#         komoditas = request.POST.getlist('komoditas')
-
-#         print(kuantitasp)
-#         print(kuantitask)
-#         print(produk)
-#         print(komoditas)
-#         #request.POST.getlist
-#         #for a,b,c,d in zip(a,b,c,d)
-
-
-#         penjualan = models.penjualan(
-#             id_pasar = models.pasar.objects.get(id_pasar = pasar),
-#             tanggal = tanggal,
-#         )
-#         penjualan.save()
-
-#         id = penjualan.id_penjualan
-#         iddetail = []
-
-#         for produk,komoditas,kuantitasp,kuantitask in zip(produk,komoditas,kuantitasp,kuantitask) :
-#             if komoditas != '' and produk != '' and kuantitasp != '' and kuantitask != '' :
-#                 detail = models.detailpenjualan(
-#                     id_penjualan = models.penjualan.objects.get(id_penjualan = id),
-#                     id_produk = models.produk.objects.get(id_produk = produk),
-#                     id_komoditas = models.komoditas.objects.get(id_komoditas = komoditas),
-#                     kuantitas_produk = kuantitasp,
-#                     kuantitas_komoditas = kuantitask,
-#                 )
-#                 detail.save()
-#                 iddetail.append(detail.iddetail_penjualan)
-
-
-#             elif komoditas != '' and produk == '' and kuantitasp == '' and kuantitask != '' :
-#                 detail = models.detailpenjualan(
-#                     id_penjualan = models.penjualan.objects.get(id_penjualan = id),
-#                     id_produk = None,
-#                     id_komoditas = models.komoditas.objects.get(id_komoditas = komoditas),
-#                     kuantitas_produk = None,
-#                     kuantitas_komoditas = kuantitask,
-#                 )
-#                 detail.save()
-#                 iddetail.append(detail.iddetail_penjualan)
-            
-#             elif komoditas == '' and produk != '' and kuantitasp != '' and kuantitask == '' :
-#                 detail = models.detailpenjualan(
-#                     id_penjualan = models.penjualan.objects.get(id_penjualan = id),
-#                     id_produk = models.produk.objects.get(id_produk = produk),
-#                     id_komoditas = None,
-#                     kuantitas_produk = kuantitasp,
-#                     kuantitas_komoditas = None,
-#                 )
-#                 detail.save()
-#                 iddetail.append(detail.iddetail_penjualan)
-
-#             else :
-#                 getpenjualan = models.penjualan.objects.get(id_penjualan = id)
-#                 getdetailpenjualan = models.detailpenjualan.objects.filter(iddetail_penjualan__in = iddetail)
-#                 getpenjualan.delete()
-#                 getdetailpenjualan.delete()
-#                 messages.error(request, 'Data Penjualan minimal memiliki produk/komoditas dan kuantitas yang sesuai, Coba Ulang Kembali!')
-#                 return redirect('create_penjualan')
-#         messages.success(request, 'Data Penjualan Berhasil Ditambahkan!')
-#         return redirect('read_penjualan')
-
-
 @login_required(login_url='login')
 @role_required(['owner', 'admin'])
-def create_penjualan(request):
-    pasarobj = models.pasar.objects.all()
-    produkobj = models.produk.objects.all()
-    komoditasobj = models.komoditas.objects.all()
+def create_sale(request):
+    market_obj = models.Market.objects.all()
+    product_obj = models.Product.objects.all()
+    commodity_obj = models.Commodity.objects.all()
 
     qr_data = {
-        'qr_komoditas': request.GET.get('qr_komoditas', ''),  # sekarang harus ID
-        'qr_kadaluarsa': request.GET.get('qr_kadaluarsa', ''),
-        'qr_kuantitas': request.GET.get('qr_kuantitas', ''),
+        'qr_commodity': request.GET.get('qr_commodity', ''), 
+        'qr_expiry': request.GET.get('qr_expiry', ''),
+        'qr_quantity': request.GET.get('qr_quantity', ''),
     }
 
     if request.method == 'GET':
-        return render(request, 'penjualan/create_penjualan.html', {
-            'pasarobj': pasarobj,
-            'produkobj': produkobj,
-            'komoditasobj': komoditasobj,
+        return render(request, 'sales/create_sales.html', {
+            'market_obj': market_obj,
+            'product_obj': product_obj,
+            'commodity_obj': commodity_obj,
             'qr_data': qr_data,
         })
 
     else:
-        pasar = request.POST.get('pasar')
-        tanggal = request.POST.get('tanggal')
+        market = request.POST.get('market_id')
+        date = request.POST.get('date')
 
-        kuantitasp = request.POST.getlist('kuantitasp')
-        kuantitask = request.POST.getlist('kuantitask')
-        produk = request.POST.getlist('produk')
-        komoditas = request.POST.getlist('komoditas')
+        product_qty = request.POST.getlist('product_qty')
+        commodity_qty = request.POST.getlist('commodity_qty')
+        products = request.POST.getlist('product')
+        commodities = request.POST.getlist('commodity')
 
-        qr_komoditas = request.POST.getlist('qr_komoditas')  # ID Komoditas dari QR
-        qr_kadaluarsa = request.POST.getlist('qr_kadaluarsa')
-        qr_kuantitas = request.POST.getlist('qr_kuantitas')
+        qr_commodities = request.POST.getlist('qr_commodity') 
+        qr_expiry = request.POST.getlist('qr_expiry')
+        qr_quantities = request.POST.getlist('qr_quantity')
 
-        penjualan = models.penjualan(
-            id_pasar=models.pasar.objects.get(id_pasar=pasar),
-            tanggal=tanggal,
+        sale = models.Sale(
+            market_id=models.Market.objects.get(market_id=market),
+            date=date,
         )
-        penjualan.save()
-        iddetail = []
+        sale.save()
+        sale_detail_ids = []
 
-        # Penjualan dari form manual
-        for p, k, qp, qk in zip(produk, komoditas, kuantitasp, kuantitask):
-            if k and p and qp and qk:
-                detail = models.detailpenjualan(
-                    id_penjualan=penjualan,
-                    id_produk=models.produk.objects.get(id_produk=p),
-                    id_komoditas=models.komoditas.objects.get(id_komoditas=k),
-                    kuantitas_produk=qp,
-                    kuantitas_komoditas=qk,
+        # Sales from manual form
+        for p, c, qp, qc in zip(products, commodities, product_qty, commodity_qty):
+            if c and p and qp and qc:
+                detail = models.SaleDetail(
+                    sale_id=sale,
+                    product_id=models.Product.objects.get(product_id=p),
+                    commodity_id=models.Commodity.objects.get(commodity_id=c),
+                    product_quantity=qp,
+                    commodity_quantity=qc,
                 )
-            elif k and not p and not qp and qk:
-                detail = models.detailpenjualan(
-                    id_penjualan=penjualan,
-                    id_produk=None,
-                    id_komoditas=models.komoditas.objects.get(id_komoditas=k),
-                    kuantitas_produk=None,
-                    kuantitas_komoditas=qk,
+            elif c and not p and not qp and qc:
+                detail = models.SaleDetail(
+                    sale_id=sale,
+                    product_id=None,
+                    commodity_id=models.Commodity.objects.get(commodity_id=c),
+                    product_quantity=None,
+                    commodity_quantity=qc,
                 )
-            elif not k and p and qp and not qk:
-                detail = models.detailpenjualan(
-                    id_penjualan=penjualan,
-                    id_produk=models.produk.objects.get(id_produk=p),
-                    id_komoditas=None,
-                    kuantitas_produk=qp,
-                    kuantitas_komoditas=None,
+            elif not c and p and qp and not qc:
+                detail = models.SaleDetail(
+                    sale_id=sale,
+                    product_id=models.Product.objects.get(product_id=p),
+                    commodity_id=None,
+                    product_quantity=qp,
+                    commodity_quantity=None,
                 )
             else:
-                continue  
+                continue
             detail.save()
-            iddetail.append(detail.iddetail_penjualan)
+            sale_detail_ids.append(detail.sale_detail_id)
 
-        # Penjualan dari QR (dengan ID komoditas)
-        for komoditas, kadaluwarsa, kuantitas in zip(qr_komoditas, qr_kadaluarsa, qr_kuantitas):
-            if not komoditas or not kuantitas:
-                continue  
+        # Sales from QR
+        for commodity, expiry, quantity in zip(qr_commodities, qr_expiry, qr_quantities):
+            if not commodity or not quantity:
+                continue
 
             try:
-                komoditas_obj = models.komoditas.objects.get(id_komoditas=komoditas)
+                commodity_obj = models.Commodity.objects.get(commodity_id=commodity)
 
-                detail = models.detailpenjualan(
-                    id_penjualan=penjualan,
-                    id_produk=None,
-                    id_komoditas=komoditas_obj,
-                    kuantitas_produk=None,
-                    kuantitas_komoditas=kuantitas,
+                detail = models.SaleDetail(
+                    sale_id=sale,
+                    product_id=None,
+                    commodity_id=commodity_obj,
+                    product_quantity=None,
+                    commodity_quantity=quantity,
                 )
                 detail.save()
-                iddetail.append(detail.iddetail_penjualan)
+                sale_detail_ids.append(detail.sale_detail_id)
 
-            except models.komoditas.DoesNotExist:
-                messages.error(request, f"Komoditas dengan ID {komoditas} tidak ditemukan.")
-                penjualan.delete()
-                return redirect('create_penjualan')
+            except models.Commodity.DoesNotExist:
+                messages.error(request, f"Commodity with ID {commodity} not found.")
+                sale.delete()
+                return redirect('create_sale')
 
-        if not iddetail:
-            messages.error(request, 'Tidak ada data penjualan yang valid disimpan.')
-            penjualan.delete()
-            return redirect('create_penjualan')
+        if not sale_detail_ids:
+            messages.error(request, 'No valid sale data was saved.')
+            sale.delete()
+            return redirect('create_sale')
 
-        pasar_name = models.pasar.objects.get(id_pasar=pasar).nama_pasar
+        market_name = models.Market.objects.get(market_id=market).market_name
         
         models.ActivityLog.objects.create(
             user=request.user,
-            action="Tambah Penjualan",
-            description=f"Menambahkan penjualan baru di {pasar_name} pada tanggal {tanggal}"
+            action="Add Sale",
+            description=f"Added a new sale at {market_name} on {date}"
         )
 
-        messages.success(request, 'Data Penjualan Berhasil Ditambahkan!')
-        return redirect('read_penjualan')
+        messages.success(request, 'Sale data has been successfully added!')
+        return redirect('read_sale')
+
 
 @login_required(login_url='login')
 @role_required(['owner', 'admin'])
-def read_penjualan(request) : 
-    penjualanobj = models.penjualan.objects.all()
-    detailpenjualanobj = models.detailpenjualan.objects.all()
-    if not penjualanobj.exists():
-        messages.error(request, "Data Penjualan Tidak Ditemukan!")
+def read_sale(request):
+    sale_obj = models.Sale.objects.all()
+    sale_detail_obj = models.SaleDetail.objects.all()
+    if not sale_obj.exists():
+        messages.error(request, "No sales data found!")
     return render(request,
-                  'penjualan/read_penjualan.html',
+                  'sales/read_sales.html',
                   {
-                      'penjualanobj': penjualanobj,
-                      'detailpenjualanobj' : detailpenjualanobj,
+                      'sale_obj': sale_obj,
+                      'sale_detail_obj': sale_detail_obj,
                   })
 
+
 @login_required(login_url='login')
 @role_required(['owner', 'admin'])
-def update_penjualan(request, id) :
-    pasarobj = models.pasar.objects.all()
-    produkobj = models.produk.objects.all()
-    komoditasobj = models.komoditas.objects.all()
+def update_sale(request, id):
+    market_obj = models.Market.objects.all()
+    product_obj = models.Product.objects.all()
+    commodity_obj = models.Commodity.objects.all()
 
-    getpenjualan = models.penjualan.objects.get(id_penjualan = id)
-    tanggal_penjualan = datetime.strftime(getpenjualan.tanggal, '%Y-%m-%d')
-    id_pasar = getpenjualan.id_pasar.nama_pasar
-    print(id_pasar)
-    print(getpenjualan.tanggal)
-    print(tanggal_penjualan)
-    if request.method == 'GET' :
-        return render (request, 'penjualan/update_penjualan.html', {
-            'tanggalpenjualan' : tanggal_penjualan,
-            'id_pasar' : id_pasar,
-            'getpenjualan' : getpenjualan,
-            'pasarobj' : pasarobj,
-            'produkobj' : produkobj,
-            'komoditasobj' : komoditasobj,
-            'id' : id,
+    sale = models.Sale.objects.get(sale_id=id)
+    sale_date = datetime.strftime(sale.date, '%Y-%m-%d')
+    market_name = sale.market_id.market_name
+
+    if request.method == 'GET':
+        return render(request, 'sales/update_sales.html', {
+            'sale_date': sale_date,
+            'market_name': market_name,
+            'sale': sale,
+            'market_obj': market_obj,
+            'product_obj': product_obj,
+            'commodity_obj': commodity_obj,
+            'id': id,
         })
     
-    else :
-        pasar = request.POST['pasar']
-        tanggal = request.POST['tanggal']
+    else:
+        market = request.POST['market_id']
+        date = request.POST['date']
+
+        old_market = sale.market_id.market_name
+        old_date = sale.date
+
+        sale.sale_id = sale.sale_id
+        sale.market_id = models.Market.objects.get(market_id=market)
+        sale.date = date
+
+        sale.save()
         
-
-        old_pasar = getpenjualan.id_pasar.nama_pasar
-        old_tanggal = getpenjualan.tanggal
-
-        getpenjualan.id_penjualan = getpenjualan.id_penjualan
-        getpenjualan.id_pasar = models.pasar.objects.get(id_pasar = pasar)
-        getpenjualan.tanggal = tanggal
-
-        getpenjualan.save()
-        
-        models.ActivityLog(
+        models.ActivityLog.objects.create(
             user=request.user,
-            action="Update Penjualan",
-            description=f"Memperbarui data penjualan ID: {getpenjualan.id_penjualan}. "
-                        f"pada Pasar: {old_pasar},\n"
-                        f"pada Tanggal penjualan: {old_tanggal}\n"
-        ).save()
+            action="Update Sale",
+            description=f"Updated sale ID: {sale.sale_id}. "
+                        f"Old Market: {old_market},\n"
+                        f"Old Sale Date: {old_date}\n"
+        )
         
-        messages.success(request, "Data Penjualan berhasil diperbarui!")
-        return redirect('read_penjualan')
+        messages.success(request, "Sale data has been successfully updated!")
+        return redirect('read_sale')
+
 
 @login_required(login_url='login')
 @role_required(['owner'])
-def delete_penjualan(request, id) :
-    getpenjualan = models.penjualan.objects.get(id_penjualan = id)
+def delete_sale(request, id):
+    sale = models.Sale.objects.get(sale_id=id)
     
-    pasar_name = getpenjualan.id_pasar.nama_pasar
-    tanggal = getpenjualan.tanggal
+    market_name = sale.market_id.market_name
+    date = sale.date
     
-    models.ActivityLog(
+    models.ActivityLog.objects.create(
         user=request.user,
-        action="Hapus Penjualan",
-        description=f"Menghapus data penjualan dengan ID penjualan: {id} di pasar {pasar_name} pada tanggal penjualan {tanggal}"
-    ).save()
+        action="Delete Sale",
+        description=f"Deleted sale with ID: {id} at market {market_name} on {date}"
+    )
     
-    getpenjualan.delete()
-    messages.error(request, "Data Penjualan berhasil dihapus!")
-    return redirect('read_penjualan')
+    sale.delete()
+    messages.error(request, "Sale data has been deleted!")
+    return redirect('read_sale')
+
 
 
 '''CUD DETAIL PENJUALAN'''
 @login_required(login_url='login')
 @role_required(['owner', 'admin'])
-def create_detail_penjualan(request, id) :
-    komoditasobj = models.komoditas.objects.all()
-    produkobj = models.produk.objects.all()
-    if request.method == 'GET' :
-        return render (request, 'penjualan/create_detail_penjualan.html', {
-            'komoditasobj' : komoditasobj,
-            'produkobj' : produkobj,
+def create_sale_detail(request, id):
+    commodity_obj = models.Commodity.objects.all()
+    product_obj = models.Product.objects.all()
+
+    if request.method == 'GET':
+        return render(request, 'sales/create_detail_sales.html', {
+            'commodity_obj': commodity_obj,
+            'product_obj': product_obj,
         })
-    
-    else :
-        kuantitasp = request.POST.getlist('kuantitasp')
-        kuantitask = request.POST.getlist('kuantitask')
-        produk = request.POST.getlist('produk')
-        komoditas = request.POST.getlist('komoditas')
 
-        iddetail = []
+    else:
+        product_qty = request.POST.getlist('product_qty')
+        commodity_qty = request.POST.getlist('commodity_qty')
+        products = request.POST.getlist('product')
+        commodities = request.POST.getlist('commodity')
 
-        for produk,komoditas,kuantitasp,kuantitask in zip(produk,komoditas,kuantitasp,kuantitask) :
-            if komoditas != '' and produk != '' and kuantitasp != '' and kuantitask != '' :
-                detail = models.detailpenjualan(
-                    id_penjualan = models.penjualan.objects.get(id_penjualan = id),
-                    id_produk = models.produk.objects.get(id_produk = produk),
-                    id_komoditas = models.komoditas.objects.get(id_komoditas = komoditas),
-                    kuantitas_produk = kuantitasp,
-                    kuantitas_komoditas = kuantitask,
+        detail_ids = []
+
+        for product, commodity, pq, cq in zip(products, commodities, product_qty, commodity_qty):
+            if commodity and product and pq and cq:
+                detail = models.SaleDetail(
+                    sale_id=models.Sale.objects.get(sale_id=id),
+                    product_id=models.Product.objects.get(product_id=product),
+                    commodity_id=models.Commodity.objects.get(commodity_id=commodity),
+                    product_quantity=pq,
+                    commodity_quantity=cq,
                 )
                 detail.save()
-                iddetail.append(detail.iddetail_penjualan)
+                detail_ids.append(detail.sale_detail_id)
+                print("condition 1")
 
-                print('kondisi 1')
-
-
-            elif komoditas != '' and produk == '' and kuantitasp == '' and kuantitask != '' :
-                detail = models.detailpenjualan(
-                    id_penjualan = models.penjualan.objects.get(id_penjualan = id),
-                    id_produk = None,
-                    id_komoditas = models.komoditas.objects.get(id_komoditas = komoditas),
-                    kuantitas_produk = None,
-                    kuantitas_komoditas = kuantitask,
+            elif commodity and not product and not pq and cq:
+                detail = models.SaleDetail(
+                    sale_id=models.Sale.objects.get(sale_id=id),
+                    product_id=None,
+                    commodity_id=models.Commodity.objects.get(commodity_id=commodity),
+                    product_quantity=None,
+                    commodity_quantity=cq,
                 )
                 detail.save()
-                iddetail.append(detail.iddetail_penjualan)
-                print('kondisi 2')
-            
-            elif komoditas == '' and produk != '' and kuantitasp != '' and kuantitask == '' :
-                detail = models.detailpenjualan(
-                    id_penjualan = models.penjualan.objects.get(id_penjualan = id),
-                    id_produk = models.produk.objects.get(id_produk = produk),
-                    id_komoditas = None,
-                    kuantitas_produk = kuantitasp,
-                    kuantitas_komoditas = None,
+                detail_ids.append(detail.sale_detail_id)
+                print("condition 2")
+
+            elif not commodity and product and pq and not cq:
+                detail = models.SaleDetail(
+                    sale_id=models.Sale.objects.get(sale_id=id),
+                    product_id=models.Product.objects.get(product_id=product),
+                    commodity_id=None,
+                    product_quantity=pq,
+                    commodity_quantity=None,
                 )
                 detail.save()
-                iddetail.append(detail.iddetail_penjualan)
-                print('kondisi 3')
+                detail_ids.append(detail.sale_detail_id)
+                print("condition 3")
 
-            else :
-                getdetailpenjualan = models.detailpenjualan.objects.filter(iddetail_penjualan__in = iddetail)
-                getdetailpenjualan.delete()
-                print('kondisi 4')
-                messages.error(request, 'Data Detail Penjualan minimal memiliki produk/komoditas dan kuantitas yang sesuai, Coba Ulang Kembali!')
-                return redirect(reverse('create_detail_penjualan', args =[id]))
-            
-        messages.success(request, 'Data Detail Penjualan Berhasil Ditambahkan!')
-        return redirect('read_penjualan')
-    
+            else:
+                get_details = models.SaleDetail.objects.filter(sale_detail_id__in=detail_ids)
+                get_details.delete()
+                print("condition 4")
+                messages.error(request, "Sale detail must have at least one valid product/commodity with its quantity. Please try again!")
+                return redirect(reverse('create_detail_sales', args=[id]))
+
+        messages.success(request, "Sale detail has been successfully added!")
+        return redirect('read_sale')
+
+
 @login_required(login_url='login')
 @role_required(['owner', 'admin'])
-def update_detail_penjualan(request, id) :
-    komoditas = models.komoditas.objects.all()
-    produk = models.produk.objects.all()
-    getpenjualan = models.penjualan.objects.all()
-    getdetailpenjualan = models.detailpenjualan.objects.get(iddetail_penjualan = id)
-    id_penjualan = getdetailpenjualan.id_penjualan.id_penjualan
+def update_sale_detail(request, id):
+    commodity = models.Commodity.objects.all()
+    product = models.Product.objects.all()
+    getsales = models.Sale.objects.all()
+    detail = models.SaleDetail.objects.get(sale_detail_id=id)
+    sale_id = detail.sale_id.sale_id
 
-    if getdetailpenjualan.id_produk is None :
-        id_komoditas = getdetailpenjualan.id_komoditas.id_komoditas
-        kuantitask = getdetailpenjualan.kuantitas_komoditas
-        if request.method == 'GET' :
-            return render (request, 'penjualan/update_detail_penjualan.html', {
-                'kuantitask' : kuantitask,
-                'id_komoditas' : id_komoditas,
-                'komoditas' : komoditas,
-                'produk' : produk,
-                'id_penjualan' : id_penjualan,
-                'getdetailpenjualan' : getdetailpenjualan,
-                'getpenjualan' : getpenjualan,
-                'id' : id
-
+    # Render form for GET request
+    if detail.product_id is None:
+        commodity_id = detail.commodity_id.commodity_id
+        commodity_qty = detail.commodity_quantity
+        if request.method == 'GET':
+            return render(request, 'sales/update_sale_detail.html', {
+                'commodity_qty': commodity_qty,
+                'commodity_id': commodity_id,
+                'commodity': commodity,
+                'product': product,
+                'sale_id': sale_id,
+                'detail': detail,
+                'getsales': getsales,
+                'id': id,
             })
 
-    if getdetailpenjualan.id_komoditas is None :
-        id_produk = getdetailpenjualan.id_produk.id_produk
-        kuantitasp = getdetailpenjualan.kuantitas_produk
-        if request.method == 'GET' :
-            return render (request, 'penjualan/update_detail_penjualan.html', {
-                'kuantitasp' : kuantitasp,
-                'id_produk' : id_produk,
-                'komoditas' : komoditas,
-                'produk' : produk,
-                'id_penjualan' : id_penjualan,
-                'getdetailpenjualan' : getdetailpenjualan,
-                'getpenjualan' : getpenjualan,
-                'id' : id
-            })
-        
-    else :
-        id_komoditas = getdetailpenjualan.id_komoditas.id_komoditas
-        kuantitask = getdetailpenjualan.kuantitas_komoditas
-        id_produk = getdetailpenjualan.id_produk.id_produk
-        kuantitasp = getdetailpenjualan.kuantitas_produk
-        if request.method == 'GET' :
-            return render (request, 'penjualan/update_detail_penjualan.html', {
-                'id_komoditas' : id_komoditas,
-                'kuantitask' : kuantitask,
-                'kuantitasp' : kuantitasp,
-                'id_produk' : id_produk,
-                'komoditas' : komoditas,
-                'produk' : produk,
-                'id_penjualan' : id_penjualan,
-                'getdetailpenjualan' : getdetailpenjualan,
-                'getpenjualan' : getpenjualan,
-                'id' : id
+    if detail.commodity_id is None:
+        product_id = detail.product_id.product_id
+        product_qty = detail.product_quantity
+        if request.method == 'GET':
+            return render(request, 'sales/update_sale_detail.html', {
+                'product_qty': product_qty,
+                'product_id': product_id,
+                'commodity': commodity,
+                'product': product,
+                'sale_id': sale_id,
+                'detail': detail,
+                'getsales': getsales,
+                'id': id,
             })
 
-        
-    idpenjualan = request.POST['idpenjualan']
-    kuantitasp = request.POST['kuantitasp']
-    kuantitask = request.POST['kuantitask']
-    produk = request.POST['produk']
-    komoditas = request.POST['komoditas']
+    else:
+        commodity_id = detail.commodity_id.commodity_id
+        commodity_qty = detail.commodity_quantity
+        product_id = detail.product_id.product_id
+        product_qty = detail.product_quantity
+        if request.method == 'GET':
+            return render(request, 'sales/update_sale_detail.html', {
+                'commodity_id': commodity_id,
+                'commodity_qty': commodity_qty,
+                'product_qty': product_qty,
+                'product_id': product_id,
+                'commodity': commodity,
+                'product': product,
+                'sale_id': sale_id,
+                'detail': detail,
+                'getsales': getsales,
+                'id': id,
+            })
 
-    print('ini komoditas',kuantitask)
-    print(kuantitasp)
+    # Handle POST request
+    sale_id_post = request.POST['sale_id']
+    product_qty = request.POST['product_qty']
+    commodity_qty = request.POST['commodity_qty']
+    product = request.POST['product']
+    commodity = request.POST['commodity']
 
-    if komoditas != '' and produk != '' and kuantitasp != '' and kuantitask != '' :
-        getdetailpenjualan.iddetail_penjualan = getdetailpenjualan.iddetail_penjualan
-        getdetailpenjualan.id_penjualan = models.penjualan.objects.get(id_penjualan = idpenjualan)
-        getdetailpenjualan.id_produk = models.produk.objects.get(id_produk = produk)
-        getdetailpenjualan.id_komoditas = models.komoditas.objects.get(id_komoditas = komoditas)
-        getdetailpenjualan.kuantitas_produk = kuantitasp
-        getdetailpenjualan.kuantitas_komoditas = kuantitask
+    if commodity and product and product_qty and commodity_qty:
+        detail.sale_id = models.Sale.objects.get(sale_id=sale_id_post)
+        detail.product_id = models.Product.objects.get(product_id=product)
+        detail.commodity_id = models.Commodity.objects.get(commodity_id=commodity)
+        detail.product_quantity = product_qty
+        detail.commodity_quantity = commodity_qty
+        detail.save()
+        print("condition 1")
 
-        getdetailpenjualan.save()
+    elif commodity and not product and not product_qty and commodity_qty:
+        detail.sale_id = models.Sale.objects.get(sale_id=sale_id_post)
+        detail.product_id = None
+        detail.commodity_id = models.Commodity.objects.get(commodity_id=commodity)
+        detail.product_quantity = None
+        detail.commodity_quantity = commodity_qty
+        detail.save()
+        print("condition 2")
 
-        print('kondisi 1')
+    elif not commodity and product and product_qty and not commodity_qty:
+        detail.sale_id = models.Sale.objects.get(sale_id=sale_id_post)
+        detail.product_id = models.Product.objects.get(product_id=product)
+        detail.commodity_id = None
+        detail.product_quantity = product_qty
+        detail.commodity_quantity = None
+        detail.save()
+        print("condition 3")
 
+    else:
+        print("invalid condition")
+        messages.error(request, "Sale detail must have at least one valid product/commodity with its quantity. Please try again!")
+        return redirect(reverse('update_sale_detail', args=[id]))
 
-    elif komoditas != '' and produk == '' and kuantitasp == '' and kuantitask != '' :
-        getdetailpenjualan.iddetail_penjualan = getdetailpenjualan.iddetail_penjualan
-        getdetailpenjualan.id_penjualan = models.penjualan.objects.get(id_penjualan = idpenjualan)
-        getdetailpenjualan.id_produk = None
-        getdetailpenjualan.id_komoditas = models.komoditas.objects.get(id_komoditas = komoditas)
-        getdetailpenjualan.kuantitas_produk = None
-        getdetailpenjualan.kuantitas_komoditas = kuantitask
-
-        getdetailpenjualan.save()
-
-        print('kondisi 2')
-    
-    elif komoditas == '' and produk != '' and kuantitasp != '' and kuantitask == '' :
-        getdetailpenjualan.iddetail_penjualan = getdetailpenjualan.iddetail_penjualan
-        getdetailpenjualan.id_penjualan = models.penjualan.objects.get(id_penjualan = idpenjualan)
-        getdetailpenjualan.id_produk = models.produk.objects.get(id_produk = produk)
-        getdetailpenjualan.id_komoditas = None
-        getdetailpenjualan.kuantitas_produk = kuantitasp
-        getdetailpenjualan.kuantitas_komoditas = None
-
-        getdetailpenjualan.save()
-
-        print('kondisi 3')
-
-    else :
-        print('sayaaaaaa')
-        messages.error(request, 'Data Detail Penjualan minimal memiliki produk/komoditas dan kuantitas yang sesuai, Coba Ulang Kembali!')
-        return redirect(reverse('update_detail_penjualan', args =[id]))
+    messages.success(request, "Sale detail has been successfully updated!")
+    return redirect('read_sale')
 
 
-    messages.success(request, "Data Detail Penjualan berhasil diperbarui!")
-    return redirect('read_penjualan')
-    
 @login_required(login_url='login')
 @role_required(['owner'])
-def delete_detail_penjualan(request, id) :
-    getdetailpenjualan = models.detailpenjualan.objects.get(iddetail_penjualan = id)
-    getdetailpenjualan.delete()
-    messages.error(request, "Data Penjualan berhasil dihapus!")
-    return redirect('read_penjualan')
+def delete_sale_detail(request, id):
+    detail = models.SaleDetail.objects.get(sale_detail_id=id)
+    detail.delete()
+    messages.error(request, "Sale detail has been deleted!")
+    return redirect('read_sale')
 
-'''CRUD PRODUK'''
+""" CRUD PRODUCT """
 @login_required(login_url='login')
 @role_required(['owner'])
-def create_produk(request) :
-    if request.method == 'GET' :
-        return render(request, 'produk/create_produk.html')
+def create_product(request):
+    if request.method == 'GET':
+        return render(request, 'product/create_product.html')
     
-    else :
-        nama_produk = request.POST['nama_produk']
-        satuan_produk = request.POST['satuan_produk']
-        harga_produk = request.POST['harga_produk']
+    else:
+        product_name = request.POST['product_name']
+        product_unit = request.POST['product_unit']
+        product_price = request.POST['product_price']
 
-        produkobj = models.produk.objects.filter(nama_produk = nama_produk)
-        if produkobj.exists() :
-            messages.error(request, 'Nama Produk sudah ada!')
-            return redirect('create_produk')
+        product_obj = models.Product.objects.filter(product_name=product_name)
+        if product_obj.exists():
+            messages.error(request, "Product name already exists!")
+            return redirect('create_product')
 
-        
-        data = models.produk(
-            nama_produk = nama_produk,
-            satuan_produk = satuan_produk,
-            harga_produk = harga_produk,
+        data = models.Product(
+            product_name=product_name,
+            product_unit=product_unit,
+            product_price=product_price,
         )
         data.save()
         
         models.ActivityLog(
             user=request.user,
-            action="Tambah Produk",
-            description=f"Menambahkan produk baru: {data.nama_produk} dengan satuan '{data.satuan_produk}' dan harga Rp {data.harga_produk}."
-        ).save()
-
-        messages.success(request, 'Data Produk Berhasil Ditambahkan!')
-        return redirect('read_produk')
-
-@login_required(login_url='login')
-@role_required(['owner', 'admin', 'produksi'])
-def read_produk(request) :
-    produkobj = models.produk.objects.all()
-    if not produkobj.exists():
-        messages.error(request, "Data Produk Tidak Ditemukan!")
-
-    return render(request, 'produk/read_produk.html', {
-        'produkobj' : produkobj
-    })
-
-@login_required(login_url='login')
-@role_required(['owner'])
-def update_produk(request, id) :
-    getproduk = models.produk.objects.get(id_produk = id)
-    if request.method == 'GET' :
-        return render(request, 'produk/update_produk.html', {
-            'getproduk' : getproduk,
-            'id' : id
-        })
-    
-    else :
-        nama_produk = request.POST['nama_produk']
-        satuan_produk = request.POST['satuan_produk']
-        harga_produk = request.POST['harga_produk']
-
-        produkobj = models.produk.objects.filter(nama_produk = nama_produk)
-        if produkobj.exists() and getproduk.nama_produk != nama_produk:
-            messages.error(request, 'Data Produk sudah ada!')
-            return redirect('update_produk', id)
-        
-        old_nama = getproduk.nama_produk
-        old_satuan = getproduk.satuan_produk
-        old_harga = getproduk.harga_produk
-
-        getproduk.id_produk = getproduk.id_produk
-        getproduk.nama_produk = nama_produk
-        getproduk.satuan_produk = satuan_produk
-        getproduk.harga_produk = harga_produk
-
-        getproduk.save()
-        
-        models.ActivityLog(
-            user=request.user,
-            action="Update Produk",
+            action="Add Product",
             description=(
-                f"Memperbarui produk ID {id}:\n "
-                f"Nama '{old_nama}' menjadi '{nama_produk}',\n "
-                f"Satuan '{old_satuan}' menjadi '{satuan_produk}',\n "
-                f"Harga Rp {old_harga} menjadi Rp {harga_produk}.\n"
+                f"Added new product: {data.product_name}, "
+                f"unit '{data.product_unit}', price {data.product_price}."
             )
         ).save()
 
-        messages.success(request, "Data Produk berhasil diperbarui!")
-        return redirect('read_produk')
+        messages.success(request, "Product has been successfully added!")
+        return redirect('read_product')
+
+
+@login_required(login_url='login')
+@role_required(['owner', 'admin', 'production'])
+def read_product(request):
+    product_obj = models.Product.objects.all()
+    if not product_obj.exists():
+        messages.error(request, "No product data found!")
+
+    return render(request, 'product/read_product.html', {
+        'product_obj': product_obj
+    })
+
 
 @login_required(login_url='login')
 @role_required(['owner'])
-def delete_produk(request, id) :
-    getproduk = models.produk.objects.get(id_produk = id)
-    nama_produk = getproduk.nama_produk
-    harga_produk = getproduk.harga_produk
+def update_product(request, id):
+    product = models.Product.objects.get(product_id=id)
 
-    getproduk.delete()
-
-    models.ActivityLog(
-        user=request.user,
-        action="Hapus Produk",
-        description=(
-            f"Menghapus produk: {nama_produk} dengan harga Rp {harga_produk} "
-        )
-    ).save()
-
-    messages.error(request, "Data Produk berhasil dihapus!")
-    return redirect('read_produk')
-
-'''CRUD KOMODITAS'''
-@login_required(login_url='login')
-@role_required(['owner'])
-def create_komoditas(request):
-    gradeobj = models.grade.objects.all()
-    
     if request.method == 'GET':
-        return render(request, 'komoditas/create_komoditas.html', {
-            'gradeobj': gradeobj
+        return render(request, 'product/update_product.html', {
+            'product': product,
+            'id': id
         })
     
     else:
-        nama_grade = request.POST['nama_grade']
-        nama_komoditas = request.POST['nama_komoditas']
-        harga_beli = request.POST['harga_beli']
-        harga_jual = request.POST['harga_jual']
+        product_name = request.POST['product_name']
+        product_unit = request.POST['product_unit']
+        product_price = request.POST['product_price']
 
-        komoditasobj = models.komoditas.objects.filter(
-            nama_komoditas=nama_komoditas,
-            id_grade__nama_grade=nama_grade
+        product_obj = models.Product.objects.filter(product_name=product_name)
+        if product_obj.exists() and product.product_name != product_name:
+            messages.error(request, "Product already exists!")
+            return redirect('update_product', id)
+
+        old_name = product.product_name
+        old_unit = product.product_unit
+        old_price = product.product_price
+
+        product.product_name = product_name
+        product.product_unit = product_unit
+        product.product_price = product_price
+        product.save()
+        
+        models.ActivityLog(
+            user=request.user,
+            action="Update Product",
+            description=(
+                f"Updated product ID {id}:\n "
+                f"Name '{old_name}' → '{product_name}',\n "
+                f"Unit '{old_unit}' → '{product_unit}',\n "
+                f"Price {old_price} → {product_price}.\n"
+            )
+        ).save()
+
+        messages.success(request, "Product has been successfully updated!")
+        return redirect('read_product')
+
+
+@login_required(login_url='login')
+@role_required(['owner'])
+def delete_product(request, id):
+    product = models.Product.objects.get(product_id=id)
+    name = product.product_name
+    price = product.product_price
+
+    product.delete()
+
+    models.ActivityLog(
+        user=request.user,
+        action="Delete Product",
+        description=(
+            f"Deleted product: {name}, price {price}."
+        )
+    ).save()
+
+    messages.error(request, "Product has been deleted!")
+    return redirect('read_product')
+
+
+""" CRUD COMMODITY """
+@login_required(login_url='login')
+@role_required(['owner'])
+def create_commodity(request):
+    grade_obj = models.Grade.objects.all()
+    
+    if request.method == 'GET':
+        return render(request, 'commodity/create_commodity.html', {
+            'grade_obj': grade_obj
+        })
+    
+    else:
+        grade_name = request.POST['grade_name']
+        commodity_name = request.POST['commodity_name']
+        purchase_price = request.POST['purchase_price']
+        selling_price = request.POST['selling_price']
+
+        commodity_obj = models.Commodity.objects.filter(
+            commodity_name=commodity_name,
+            grade_id__grade_name=grade_name
         )
 
-        if komoditasobj.exists():
-            messages.error(request, 'Nama Komoditas sudah ada!')
+        if commodity_obj.exists():
+            messages.error(request, "Commodity already exists!")
         
         else:
-            grade_instance = models.grade.objects.get(nama_grade=nama_grade)
-            data = models.komoditas(
-                id_grade=grade_instance,
-                nama_komoditas=nama_komoditas,
-                harga_beli=harga_beli,
-                harga_jual=harga_jual,
+            grade_instance = models.Grade.objects.get(grade_name=grade_name)
+            data = models.Commodity(
+                grade_id=grade_instance,
+                commodity_name=commodity_name,
+                purchase_price=purchase_price,
+                selling_price=selling_price,
             )
             data.save()
 
             models.ActivityLog(
                 user=request.user,
-                action="Tambah Komoditas",
+                action="Add Commodity",
                 description=(
-                    f"Menambahkan komoditas baru: {data.nama_komoditas} "
-                    f"dengan grade {data.id_grade.nama_grade},"
-                    f"harga beli Rp {data.harga_beli}, "
-                    f"harga jual Rp {data.harga_jual}."
+                    f"Added new commodity: {data.commodity_name}, "
+                    f"Grade {data.grade_id.grade_name}, "
+                    f"Purchase {data.purchase_price}, "
+                    f"Selling {data.selling_price}."
                 )
             ).save()
 
-            messages.success(request, 'Data Komoditas Berhasil Ditambahkan!')
+            messages.success(request, "Commodity has been successfully added!")
 
-        return redirect('read_komoditas')
+        return redirect('read_commodity')
 
 
 @login_required(login_url='login')
-@role_required(['owner', 'admin', 'inspeksi'])
-def read_komoditas(request) :
-    komoditasobj = models.komoditas.objects.all()
-    if not komoditasobj.exists():
-        messages.error(request, "Data Komoditas Tidak Ditemukan!")
+@role_required(['owner', 'admin', 'inspection'])
+def read_commodity(request):
+    commodity_obj = models.Commodity.objects.all()
+    if not commodity_obj.exists():
+        messages.error(request, "No commodity data found!")
 
-    return render(request, 'komoditas/read_komoditas.html', {
-        'komoditasobj' : komoditasobj
+    return render(request, 'commodity/read_commodity.html', {
+        'commodity_obj': commodity_obj
     })
+
 
 @login_required(login_url='login')
 @role_required(['owner'])
-def update_komoditas(request, id):
-    gradeobj = models.grade.objects.all()
-    getkomoditas = models.komoditas.objects.get(id_komoditas=id)
-    nama_grade = getkomoditas.id_grade.nama_grade
+def update_commodity(request, id):
+    grade_obj = models.Grade.objects.all()
+    commodity = models.Commodity.objects.get(commodity_id=id)
+    grade_name = commodity.grade_id.grade_name
 
     if request.method == 'GET':
-        return render(request, 'komoditas/update_komoditas.html', {
-            'getkomoditas': getkomoditas,
-            'nama_grade': nama_grade,
-            'gradeobj': gradeobj,
+        return render(request, 'commodity/update_commodity.html', {
+            'commodity': commodity,
+            'grade_name': grade_name,
+            'grade_obj': grade_obj,
             'id': id,
         })
 
     else:
-        nama_grade_baru = request.POST['nama_grade']
-        nama_komoditas_baru = request.POST['nama_komoditas']
-        harga_beli_baru = request.POST['harga_beli']
-        harga_jual_baru = request.POST['harga_jual']
+        new_grade_name = request.POST['grade_name']
+        new_commodity_name = request.POST['commodity_name']
+        new_purchase_price = request.POST['purchase_price']
+        new_selling_price = request.POST['selling_price']
 
-        komoditasobj = models.komoditas.objects.filter(nama_komoditas=nama_komoditas_baru,id_grade__nama_grade=nama_grade_baru)
-        if komoditasobj.exists() and (getkomoditas.nama_komoditas != nama_komoditas_baru or getkomoditas.id_grade.nama_grade != nama_grade_baru):
-            messages.error(request, 'Data Komoditas sudah ada!')
-            return redirect('update_komoditas', id)
+        commodity_obj = models.Commodity.objects.filter(
+            commodity_name=new_commodity_name,
+            grade_id__grade_name=new_grade_name
+        )
+        if commodity_obj.exists() and (
+            commodity.commodity_name != new_commodity_name 
+            or commodity.grade_id.grade_name != new_grade_name
+        ):
+            messages.error(request, "Commodity already exists!")
+            return redirect('update_commodity', id)
 
-        nama_komoditas_lama = getkomoditas.nama_komoditas
-        grade_lama = getkomoditas.id_grade.nama_grade
-        harga_beli_lama = getkomoditas.harga_beli
-        harga_jual_lama = getkomoditas.harga_jual
+        old_name = commodity.commodity_name
+        old_grade = commodity.grade_id.grade_name
+        old_purchase_price = commodity.purchase_price
+        old_selling_price = commodity.selling_price
 
-        getkomoditas.id_grade = models.grade.objects.get(nama_grade=nama_grade_baru)
-        getkomoditas.nama_komoditas = nama_komoditas_baru
-        getkomoditas.harga_beli = harga_beli_baru
-        getkomoditas.harga_jual = harga_jual_baru
-        getkomoditas.save()
+        commodity.grade_id = models.Grade.objects.get(grade_name=new_grade_name)
+        commodity.commodity_name = new_commodity_name
+        commodity.purchase_price = new_purchase_price
+        commodity.selling_price = new_selling_price
+        commodity.save()
 
         models.ActivityLog(
             user=request.user,
-            action="Update Komoditas",
+            action="Update Commodity",
             description=(
-                f"Memperbarui komoditas ID {getkomoditas.id_komoditas}.\n "
-                f"Dari: {nama_komoditas_lama} (Grade: {grade_lama}, Beli: Rp{harga_beli_lama}, Jual: Rp{harga_jual_lama})\n "
-                f"Menjadi: {nama_komoditas_baru} (Grade: {nama_grade_baru}, Beli: Rp{harga_beli_baru}, Jual: Rp{harga_jual_baru})\n"
+                f"Updated commodity ID {commodity.commodity_id}:\n "
+                f"From: {old_name} (Grade: {old_grade}, Purchase: {old_purchase_price}, Selling: {old_selling_price})\n "
+                f"To: {new_commodity_name} (Grade: {new_grade_name}, Purchase: {new_purchase_price}, Selling: {new_selling_price})\n"
             )
         ).save()
 
-        messages.success(request, 'Data Komoditas berhasil diperbarui!')
-        return redirect('read_komoditas')
+        messages.success(request, "Commodity has been successfully updated!")
+        return redirect('read_commodity')
 
 
 @login_required(login_url='login')
 @role_required(['owner'])
-def delete_komoditas(request, id):
-    getkomoditas = models.komoditas.objects.get(id_komoditas=id)
-    nama_komoditas = getkomoditas.nama_komoditas
-    nama_grade = getkomoditas.id_grade.nama_grade
+def delete_commodity(request, id):
+    commodity = models.Commodity.objects.get(commodity_id=id)
+    name = commodity.commodity_name
+    grade = commodity.grade_id.grade_name
 
     models.ActivityLog(
         user=request.user,
-        action="Hapus Komoditas",
+        action="Delete Commodity",
         description=(
-            f"Menghapus komoditas: {nama_komoditas} (Grade: {nama_grade}) "
+            f"Deleted commodity: {name} (Grade: {grade})."
         )
     ).save()
-    getkomoditas.delete()
-    messages.error(request, "Data komoditas berhasil dihapus!")
-    return redirect('read_komoditas')
+    
+    commodity.delete()
+    messages.error(request, "Commodity has been deleted!")
+    return redirect('read_commodity')
 
-
-'''CRUD GRADE'''
+""" CRUD GRADE """
 @login_required(login_url='login')
-@role_required(['owner','admin','inspeksi'])
-def read_grade(request) :
-    gradeobj = models.grade.objects.all()
+@role_required(['owner', 'admin', 'inspection'])
+def read_grade(request):
+    gradeobj = models.Grade.objects.all()
     return render(request, 'grade/read_grade.html', {'gradeobj': gradeobj})
 
 @login_required(login_url='login')
 @role_required(['owner'])
-def create_grade(request) :
-    if request.method == "GET" :
-        return render(request, 
-                      'grade/create_grade.html')
-    else :
-        namagrade = request.POST["nama_grade"]
-        gradeobj = models.grade.objects.filter(nama_grade=namagrade)
-        
-        if len(gradeobj) >0:
-            messages.error(request,"Nama Grade Sudah Ada")
-            return redirect("create_mitra")
-        else :
-            deskripsi = request.POST["deskripsi"]
-    
-            data = models.grade(
-                nama_grade = namagrade,
-                deskripsi_grade = deskripsi,
+def create_grade(request):
+    if request.method == "GET":
+        return render(request, 'grade/create_grade.html')
+    else:
+        grade_name = request.POST["grade_name"]
+        grade_obj = models.Grade.objects.filter(grade_name=grade_name)
+
+        if grade_obj.exists():
+            messages.error(request, "Grade name already exists!")
+            return redirect("create_grade")
+        else:
+            description = request.POST["grade_description"]
+
+            data = models.Grade(
+                grade_name=grade_name,
+                grade_description=description,
             )
             data.save()
-            messages.success(request,"Data Grade Berhasil Ditambahkan!")
-            
-        models.ActivityLog(
-            user=request.user,
-            action="Tambah Grade",
-            description=f"Menambahkan grade baru: {data.nama_grade} - {data.deskripsi_grade}."
-        ).save()
-        
+            messages.success(request, "Grade successfully added!")
+
+            models.ActivityLog(
+                user=request.user,
+                action="Add Grade",
+                description=f"Added new grade: {data.grade_name} - {data.grade_description}."
+            ).save()
+
         return redirect("read_grade")
 
 @login_required(login_url='login')
 @role_required(['owner'])
-def update_grade(request,id) :
+def update_grade(request, id):
     try:
-        getgradeobj = models.grade.objects.get(id_grade=id)
-    except models.grade.DoesNotExist:
-        messages.error(request, "Grade tidak ditemukan!")
+        grade_obj = models.Grade.objects.get(grade_id=id)
+    except models.Grade.DoesNotExist:
+        messages.error(request, "Grade not found!")
         return redirect('read_grade')
-
 
     if request.method == "GET":
         return render(request, 'grade/update_grade.html', {
-            'getgradeobj': getgradeobj,
+            'gradeobj': grade_obj,
         })
     else:
-        namagrade = request.POST["nama_grade"]
-        if models.grade.objects.filter(nama_grade=namagrade).exclude(id_grade = id).exists() :
-            messages.error(request,"Nama grade sudah ada!")
+        grade_name = request.POST["grade_name"]
+        if models.Grade.objects.filter(grade_name=grade_name).exclude(grade_id=id).exists():
+            messages.error(request, "Grade name already exists!")
             return render(request, 'grade/update_grade.html', {
-            'getgradeobj': getgradeobj,
-            }) 
-            
-        old_nama = getgradeobj.nama_grade
-        old_desc = getgradeobj.deskripsi_grade
+                'gradeobj': grade_obj,
+            })
 
-        getgradeobj.nama_grade = request.POST["nama_grade"]
-        getgradeobj.deskripsi_grade = request.POST["deskripsi_grade"]
-        getgradeobj.save()
+        old_name = grade_obj.grade_name
+        old_desc = grade_obj.grade_description
+
+        grade_obj.grade_name = request.POST["grade_name"]
+        grade_obj.grade_description = request.POST["grade_description"]
+        grade_obj.save()
 
         models.ActivityLog(
             user=request.user,
             action="Update Grade",
-            description=f"Memperbarui grade dari '{old_nama} - {old_desc}' \n menjadi '{getgradeobj.nama_grade} - {getgradeobj.deskripsi_grade}'."
+            description=f"Updated grade from '{old_name} - {old_desc}' \n to '{grade_obj.grade_name} - {grade_obj.grade_description}'."
         ).save()
-        messages.success(request, "Grade berhasil diperbarui!")
+
+        messages.success(request, "Grade successfully updated!")
         return redirect('read_grade')
 
 @login_required(login_url='login')
-@role_required(['owner'])   
-def delete_grade(request,id) :
-    getgrade = models.grade.objects.get(id_grade=id)
-    nama_grade = getgrade.nama_grade
-    deskripsi_grade = getgrade.deskripsi_grade
+@role_required(['owner'])
+def delete_grade(request, id):
+    grade_obj = models.Grade.objects.get(grade_id=id)
+    grade_name = grade_obj.grade_name
+    grade_description = grade_obj.grade_description
 
-    getgrade.delete()
+    grade_obj.delete()
 
     models.ActivityLog(
         user=request.user,
-        action="Hapus Grade",
-        description=f"Menghapus grade: {nama_grade} - {deskripsi_grade}."
+        action="Delete Grade",
+        description=f"Deleted grade: {grade_name} - {grade_description}."
     ).save()
-    messages.success(request, "Grade berhasil dihapus!")
+
+    messages.success(request, "Grade successfully deleted!")
     return redirect('read_grade')
 
-'''CRUD PASAR'''
+
+""" CRUD MARKET (PASAR) """
 @login_required(login_url='login')
 @role_required(['owner'])
-def create_pasar(request) :
-    if request.method == 'GET' :
-        return render(request, 'pasar/create_pasar.html')
-    
-    else :
-        nama_pasar = request.POST['nama_pasar']
-        alamat_pasar = request.POST['alamat_pasar']
+def create_market(request):
+    if request.method == 'GET':
+        return render(request, 'market/create_market.html')
+    else:
+        market_name = request.POST['market_name']
+        market_address = request.POST['market_address']
 
-        pasarobj = models.pasar.objects.filter(nama_pasar = nama_pasar)
-        if pasarobj.exists() :
-            messages.error(request, 'Nama Pasar sudah ada!')
-
-        else :
-            data = models.pasar(
-                nama_pasar = nama_pasar,
-                alamat_pasar = alamat_pasar,
+        market_obj = models.Market.objects.filter(market_name=market_name)
+        if market_obj.exists():
+            messages.error(request, 'Market name already exists!')
+        else:
+            data = models.Market(
+                market_name=market_name,
+                market_address=market_address,
             )
             data.save()
-            
+
             models.ActivityLog(
                 user=request.user,
-                action="Tambah Pasar",
-                description=f"Menambahkan pasar baru: {data.nama_pasar}, beralamat di {data.alamat_pasar}."
+                action="Add Market",
+                description=f"Added new market: {data.market_name}, located at {data.market_address}."
             ).save()
-            messages.success(request, 'Data Pasar Berhasil Ditambahkan!')
+            messages.success(request, 'Market successfully added!')
 
-        return redirect('read_pasar')
+        return redirect('read_market')
 
 @login_required(login_url='login')
 @role_required(['owner', 'admin'])
-def read_pasar(request) :
-    pasarobj = models.pasar.objects.all()
-    if not pasarobj.exists():
-        messages.error(request, "Data Pasar Tidak Ditemukan!")
+def read_market(request):
+    market_obj = models.Market.objects.all()
+    if not market_obj.exists():
+        messages.error(request, "No market data found!")
 
-    return render(request, 'pasar/read_pasar.html', {
-        'pasarobj' : pasarobj
+    return render(request, 'market/read_market.html', {
+        'market_obj': market_obj
     })
 
-def update_pasar(request, id) :
-    getpasar = models.pasar.objects.get(id_pasar = id)
-    if request.method == 'GET' :
-        return render(request, 'pasar/update_pasar.html', {
-            'getpasar' : getpasar,
-            'id' : id
+@login_required(login_url='login')
+@role_required(['owner'])
+def update_market(request, id):
+    market_obj = models.Market.objects.get(market_id=id)
+    if request.method == 'GET':
+        return render(request, 'market/update_market.html', {
+            'getmarket': market_obj,
+            'id': id
         })
-    
-    else :
-        nama_pasar = request.POST['nama_pasar']
-        alamat_pasar = request.POST['alamat_pasar']
-        
-        pasarobj = models.pasar.objects.filter(nama_pasar = nama_pasar)
-        if pasarobj.exists() and getpasar.nama_pasar != nama_pasar:
-            messages.error(request, 'Nama Pasar sudah ada!')
-            return redirect('update_pasar', id)
+    else:
+        market_name = request.POST['market_name']
+        market_address = request.POST['market_address']
 
-        nama_lama = getpasar.nama_pasar
-        alamat_lama = getpasar.alamat_pasar
+        existing = models.Market.objects.filter(market_name=market_name)
+        if existing.exists() and market_obj.market_name != market_name:
+            messages.error(request, 'Market name already exists!')
+            return redirect('update_market', id)
 
-        getpasar.nama_pasar = nama_pasar
-        getpasar.alamat_pasar = alamat_pasar
-        getpasar.save()
+        old_name = market_obj.market_name
+        old_address = market_obj.market_address
+
+        market_obj.market_name = market_name
+        market_obj.market_address = market_address
+        market_obj.save()
 
         models.ActivityLog(
             user=request.user,
-            action="Update Pasar",
-            description=f"Memperbarui pasar dari '{nama_lama} - {alamat_lama}' \n menjadi '{nama_pasar} - {alamat_pasar}'."
+            action="Update Market",
+            description=f"Updated market from '{old_name} - {old_address}' \n to '{market_name} - {market_address}'."
         ).save()
 
-        messages.success(request, 'Data Pasar berhasil diperbarui!')
-        return redirect('read_pasar')
+        messages.success(request, 'Market successfully updated!')
+        return redirect('read_market')
 
 @login_required(login_url='login')
 @role_required(['owner'])
-def delete_pasar(request, id) :
-    getpasar = models.pasar.objects.get(id_pasar = id)
-    nama = getpasar.nama_pasar
-    alamat = getpasar.alamat_pasar
+def delete_market(request, id):
+    market_obj = models.Market.objects.get(market_id=id)
+    name = market_obj.market_name
+    address = market_obj.market_address
 
-    getpasar.delete()
+    market_obj.delete()
 
     models.ActivityLog(
         user=request.user,
-        action="Hapus Pasar",
-        description=f"Menghapus pasar {nama} dengan alamat {alamat}."
+        action="Delete Market",
+        description=f"Deleted market {name} located at {address}."
     ).save()
 
-    messages.error(request, "Data pasar berhasil dihapus!")
-    return redirect('read_pasar')
+    messages.success(request, "Market successfully deleted!")
+    return redirect('read_market')
+
+from datetime import datetime
 
 @login_required(login_url='login')
 @role_required(['owner'])
-def laporan_penjualan(request) :
-    mulai = request.GET.get('mulai')
-    akhir = request.GET.get('akhir')
+def sales_report(request):
+    start = request.GET.get('start')
+    end = request.GET.get('end')
 
-    if mulai and akhir  :
-        mulai_date = datetime.strptime(mulai, "%Y-%m-%d")
-        akhir_date = datetime.strptime(akhir, "%Y-%m-%d")
+    if start and end:
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+        end_date = datetime.strptime(end, "%Y-%m-%d")
 
-        penjualanobj = models.penjualan.objects.filter(tanggal__range = (mulai,akhir)).order_by('tanggal')
-        if not penjualanobj.exists() :
-            messages.error(request, "Data Penjualan tidak ada!")
-            return redirect('laporan_penjualan')
-        detailobjlokal = []
-        listgrandtotal = []
-        for item in penjualanobj :
-            listdetail = []
-            listhargajual = []
-            id_penjualan = item.id_penjualan
-        
-            detailpenjualanobj = models.detailpenjualan.objects.filter(id_penjualan = id_penjualan)
+        sales_qs = models.Sale.objects.filter(date__range=(start, end)).order_by('date')
+        if not sales_qs.exists():
+            messages.error(request, "No sales data found!")
+            return redirect('sales_report')
 
-            if not detailpenjualanobj.exists() :
+        detail_sales_list = []
+        total_sales_list = []
+
+        for sale in sales_qs:
+            detail_list = []
+            item_prices = []
+
+            sale_details = models.SaleDetail.objects.filter(sale_id=sale.sale_id)
+            if not sale_details.exists():
                 continue
 
-            for i in detailpenjualanobj :
-                hargapenjualan = (i.id_komoditas.harga_jual * i.kuantitas_komoditas) + (i.id_produk.harga_produk * i.kuantitas_produk)
-                listhargajual.append(hargapenjualan)
+            for d in sale_details:
+                # safer calculation
+                commodity_price = (d.commodity_id.selling_price * d.commodity_quantity) if d.commodity_id else 0
+                product_price = (d.product_id.product_price * d.product_quantity) if d.product_id else 0
+                item_prices.append(commodity_price + product_price)
 
-            totaljual = sum(listhargajual)
-            listdetail.append(item)
-            listdetail.append(detailpenjualanobj)
-            listdetail.append(listhargajual)
-            listdetail.append(totaljual)
+            total_price = sum(item_prices)
+            detail_list.extend([sale, sale_details, item_prices, total_price])
 
-            listgrandtotal.append(totaljual)
-            detailobjlokal.append(listdetail)
+            total_sales_list.append(total_price)
+            detail_sales_list.append(detail_list)
 
-        grandtotallokal = sum(listgrandtotal)
+        grand_total = sum(total_sales_list)
 
-        return render(request,'laporan/laporan_penjualan.html',{
-        'detailobjlokal' :detailobjlokal,
-        'grandtotallokal' :grandtotallokal,
-        'mulai' : mulai_date,
-        'akhir' :akhir_date,
-    })
-    else :
-        penjualanobj = models.penjualan.objects.all().order_by('tanggal')
-        detailobjlokal = []
-        listgrandtotal = []
-        for item in penjualanobj :
-            listdetail = []
-            listhargajual = []
-            id_penjualan = item.id_penjualan
-        
-            detailpenjualanobj = models.detailpenjualan.objects.filter(id_penjualan = id_penjualan)
-
-            
-            if not detailpenjualanobj.exists() :
-                continue
-
-            for i in detailpenjualanobj :
-                if i.id_komoditas is not None and i.id_produk is not None :
-                    hargapenjualan = (i.id_komoditas.harga_jual * i.kuantitas_komoditas) + (i.id_produk.harga_produk * i.kuantitas_produk)
-                    listhargajual.append(hargapenjualan)
-                elif i.id_komoditas is None and i.id_produk is not None :
-                    hargapenjualan = (i.id_produk.harga_produk * i.kuantitas_produk)
-                    listhargajual.append(hargapenjualan)
-                elif i.id_komoditas is not None and i.id_produk is None :
-                    hargapenjualan = (i.id_komoditas.harga_jual * i.kuantitas_komoditas)
-                    listhargajual.append(hargapenjualan)
-
-            totaljual = sum(listhargajual)
-            listdetail.append(item)
-            listdetail.append(detailpenjualanobj)
-            listdetail.append(listhargajual)
-            listdetail.append(totaljual)
-
-            listgrandtotal.append(totaljual)
-            detailobjlokal.append(listdetail)
-        grandtotallokal = sum(listgrandtotal)
-
-        return render(request,'laporan/laporan_penjualan.html',{
-        'detailobjlokal' :detailobjlokal,
-        'grandtotallokal' :grandtotallokal,
-    })
-
-'''PANEN MITRA'''
-@login_required(login_url="login")
-@role_required(["owner", 'admin','inspeksi']) 
-def read_panenmitra(request) :
-    panenmitra = models.detailpanenmitra.objects.all().order_by('idpanen_mitra__tanggal_panen')
-    if not panenmitra.exists() :
-        messages.error(request, 'Data Panen Mitra Tidak Ditemukan!')
-        return render(request,'panen/panenmitra/read_panenmitra.html')
-    else :
-
-        
-
-        return render(request,'panen/panenmitra/read_panenmitra.html',{
-            'panenmitra' : panenmitra,
-        })
-        
-# @login_required(login_url="login")
-# @role_required(["owner",'admin']) 
-# def create_panenmitra(request) :
-#     filtermitra = models.mitra.objects.filter(status_mitra = True)
-#     allkomoditas = models.komoditas.objects.all()
-#     if request.method == "GET" :
-#         return render(request, 
-#                       'panen/panenmitra/create_panenmitra.html',{
-#                             'filtermitra' : filtermitra,
-#                             'allkomoditas' : allkomoditas,
-#                       })
-#     else :
-#         nama_mitra = request.POST["nama_mitra"]
-#         tanggal_panen = request.POST["tanggal_panen"]
-#         komoditas = request.POST.getlist("komoditas")
-#         batch = request.POST.getlist("batch")
-#         kadaluwarsa = request.POST.getlist("kadaluwarsa")
-#         kuantitas = request.POST.getlist("kuantitas")
-       
-#         panen_mitra = models.panenmitra(
-#             id_mitra = models.mitra.objects.get(id_mitra=nama_mitra),
-#             tanggal_panen = tanggal_panen
-#         )
-
-#         panen_mitra.save()
-       
-#         for komoditas,batch,kadaluwarsa,kuantitas in zip(komoditas,batch,kadaluwarsa,kuantitas) :
-#             models.detailpanenmitra(
-#                 idpanen_mitra = panen_mitra,
-#                 id_komoditas = models.komoditas.objects.get(
-#                     id_komoditas = komoditas
-#                 ),
-#                 batch = batch,
-#                 tanggal_kadaluwarsa = kadaluwarsa,
-#                 kuantitas = kuantitas,
-#             ).save()
-
-#         messages.success(request,"Data Panen Mitra Berhasil Ditambahkan!")
-#         return redirect("read_panenmitra")
-            
-@login_required(login_url="login")
-@role_required(["owner"])
-def create_panenmitra(request):
-    allkomoditas = models.komoditas.objects.all()
-    allmitra = models.mitra.objects.all()
-
-    if request.method == "GET":
-        return render(request, 'panen/panenmitra/create_panenmitra.html', {
-            'allkomoditas': allkomoditas,
-            'allmitra': allmitra
+        return render(request, 'report/sales_report.html', {
+            'detail_sales_list': detail_sales_list,
+            'grand_total': grand_total,
+            'start': start_date,
+            'end': end_date,
         })
 
     else:
-        tanggal_panen = request.POST["tanggal_panen"]
-        id_mitra = request.POST["nama_mitra"]
-        komoditas_list = request.POST.getlist("komoditas")
+        # no filter, show all
+        sales_qs = models.Sale.objects.all().order_by('date')
+        detail_sales_list = []
+        total_sales_list = []
+
+        for sale in sales_qs:
+            detail_list = []
+            item_prices = []
+
+            sale_details = models.SaleDetail.objects.filter(sale_id=sale.sale_id)
+            if not sale_details.exists():
+                continue
+
+            for d in sale_details:
+                komoditas_price = (d.commodity_id.selling_price * d.commodity_quantity) if d.commodity_id else 0
+                product_price = (d.product_id.product_price * d.product_quantity) if d.product_id else 0
+                item_prices.append(komoditas_price + product_price)
+
+            total_price = sum(item_prices)
+            detail_list.extend([sale, sale_details, item_prices, total_price])
+
+            total_sales_list.append(total_price)
+            detail_sales_list.append(detail_list)
+
+        grand_total = sum(total_sales_list)
+
+        return render(request, 'report/sales_report.html', {
+            'detail_sales_list': detail_sales_list,
+            'grand_total': grand_total,
+        })
+
+
+""" PARTNER HARVEST (PANEN MITRA) """
+@login_required(login_url="login")
+@role_required(["owner", "admin", "inspection"])
+def read_partner_harvest(request):
+    harvest_qs = models.PartnerHarvestDetail.objects.all().order_by('partner_harvest_id__harvest_date')
+
+    if not harvest_qs.exists():
+        messages.error(request, 'No partner harvest data found!')
+        return render(request, 'harvest/partner/read_partner_harvest.html')
+
+    return render(request, 'harvest/partner/read_partner_harvest.html', {
+        'harvest_qs': harvest_qs,
+    })
+
+            
+@login_required(login_url="login")
+@role_required(["owner"])
+def create_partner_harvest(request):
+    all_commodities = models.Commodity.objects.all()
+    all_partners = models.Partner.objects.all()
+
+    if request.method == "GET":
+        return render(request, 'harvest/partner/create_partner_harvest.html', {
+            'all_commodities': all_commodities,
+            'all_partners': all_partners,
+        })
+
+    else:
+        harvest_date = request.POST["harvest_date"]
+        partner_id = request.POST["partner_name"]
+        commodity_list = request.POST.getlist("commodity")
         batch_list = request.POST.getlist("batch")
-        kadaluwarsa_list = request.POST.getlist("kadaluwarsa")
-        kuantitas_list = request.POST.getlist("kuantitas")
+        expiry_list = request.POST.getlist("expiry_date")
+        quantity_list = request.POST.getlist("quantity")
 
-        panen_mitra = models.panenmitra(
-            tanggal_panen=tanggal_panen,
-            id_mitra=models.mitra.objects.get(id_mitra=id_mitra)
+        partner_harvest = models.PartnerHarvest(
+            harvest_date=harvest_date,
+            partner_id=models.Partner.objects.get(partner_id=partner_id)
         )
-        panen_mitra.save()
+        partner_harvest.save()
 
-        for komoditas_id, batch, kadaluwarsa, kuantitas in zip(komoditas_list, batch_list, kadaluwarsa_list, kuantitas_list):
-            komoditas_obj = models.komoditas.objects.get(id_komoditas=komoditas_id)
+        for commodity_id, batch, expiry_date, quantity in zip(
+            commodity_list, batch_list, expiry_list, quantity_list
+        ):
+            commodity_obj = models.Commodity.objects.get(commodity_id=commodity_id)
 
-            if not qr_already_generated(komoditas_id, kadaluwarsa):
-                models.detailpanenmitra(
-                    idpanen_mitra=panen_mitra,
-                    id_komoditas = models.komoditas.objects.get(
-                    id_komoditas = komoditas_id
-                 ),
+            if not qr_already_generated(commodity_id, expiry_date):
+                models.PartnerHarvestDetail(
+                    partner_harvest_id=partner_harvest,
+                    commodity_id=commodity_obj,
                     batch=batch,
-                    tanggal_kadaluwarsa=kadaluwarsa,
-                    kuantitas=kuantitas,
+                    expiry_date=expiry_date,
+                    quantity=quantity,
                 ).save()
-                
-                komoditas_str = models.komoditas.objects.get(id_komoditas=komoditas_id)
+
                 qr_data = generate_qr_data(
-                    str(komoditas_str),
-                    kadaluwarsa,
-                    kuantitas
+                    str(commodity_obj),
+                    expiry_date,
+                    quantity
                 )
                 qr_image = generate_qr_image(qr_data)
 
                 response = HttpResponse(qr_image.getvalue(), content_type="image/png")
-                response['Content-Disposition'] = f'attachment; filename="qr_{komoditas_obj.nama_komoditas}_{komoditas_obj.id_grade.nama_grade}_{kadaluwarsa}.png"'
+                response['Content-Disposition'] = (
+                    f'attachment; filename="qr_{commodity_obj.commodity_name}_'
+                    f'{commodity_obj.grade_id.grade_name}_{expiry_date}.png"'
+                )
                 return response
             else:
-                models.detailpanenmitra(
-                    idpanen_mitra=panen_mitra,
-                    id_komoditas = models.komoditas.objects.get(
-                     id_komoditas = komoditas_id
-                 ),
+                models.PartnerHarvestDetail(
+                    partner_harvest_id=partner_harvest,
+                    commodity_id=commodity_obj,
                     batch=batch,
-                    tanggal_kadaluwarsa=kadaluwarsa,
-                    kuantitas=kuantitas,
+                    expiry_date=expiry_date,
+                    quantity=quantity,
                 ).save()
-                
-            for komoditas_id, batch, kadaluwarsa, kuantitas in zip(komoditas_list, batch_list, kadaluwarsa_list, kuantitas_list):
-                komoditas_obj = models.komoditas.objects.get(id_komoditas=komoditas_id)
 
                 models.ActivityLog(
                     user=request.user,
-                    action="Tambah Panen Mitra",
+                    action="Add Partner Harvest",
                     description=(
-                        f"Menambahkan panen mitra dari: {panen_mitra.id_mitra.nama_mitra}"
-                        f"dengan tanggal panen: {panen_mitra.tanggal_panen}"
+                        f"Add partner harvest from {partner_harvest.partner_id.partner_name}, "
+                        f"harvest date {partner_harvest.harvest_date}"
                     )
                 ).save()
-                
-                messages.warning(request, f"QR tidak dibuat karena data {komoditas_id} dengan kadaluarsa {kadaluwarsa} sudah ada.")
-    messages.success(request, "Data Panen Mitra Berhasil Ditambahkan!")
-    return redirect("total_komoditas")
+
+                messages.warning(
+                    request,
+                    f"QR not created because data {commodity_id} with expiry {expiry_date} already exists."
+                )
+
+    messages.success(request, "Partner harvest successfully added!")
+    return redirect("total_commodities")
 
 
 @login_required(login_url="login")
-@role_required(["owner",'admin','inspeksi']) 
-def update_panenmitra(request, id):
+@role_required(["owner", "admin", "inspection"])
+def update_partner_harvest(request, id):
     try:
-        getdetailobj = models.detailpanenmitra.objects.get(iddetailpanen_mitra=id)
-        
-    except models.detailpanenmitra.DoesNotExist:
-        messages.error(request, "Data Panen Mitra tidak ditemukan!")
-        return redirect('read_panenmitra')
-    filtermitra = models.mitra.objects.filter(status_mitra = True)
-    allkomoditas = models.komoditas.objects.all()
-  
-    if request.method == "GET":
-        tanggal_panen = getdetailobj.idpanen_mitra.tanggal_panen.strftime('%Y-%m-%d')  # Format tanggal
-        tanggal_kadaluwarsa = getdetailobj.tanggal_kadaluwarsa.strftime('%Y-%m-%d')  # Format tanggal
-        return render(request, 'panen/panenmitra/update_panenmitra.html', {
-            'getdetailobj': getdetailobj,
-            'filtermitra' : filtermitra,
-            'allkomoditas' : allkomoditas,
-            'tanggal_panen': tanggal_panen,
-            'tanggal_kadaluwarsa': tanggal_kadaluwarsa
-        })
-    else:     
-        # Perbarui objek mitra
-        getmitra = models.mitra.objects.get(id_mitra=request.POST["nama_mitra"])
-        getkomoditas =models.komoditas.objects.get(id_komoditas=request.POST["komoditas"])
+        detail_obj = models.PartnerHarvestDetail.objects.get(partner_harvest_detail_id=id)
+    except models.PartnerHarvestDetail.DoesNotExist:
+        messages.error(request, "Partner harvest data not found!")
+        return redirect('read_partner_harvest')
 
-        getdetailobj.idpanen_mitra.id_mitra = getmitra
-        getdetailobj.idpanen_mitra.tanggal_panen = request.POST["tanggal_panen"]
-        getdetailobj.id_komoditas = getkomoditas
-        getdetailobj.batch = request.POST["batch"]
-        getdetailobj.tanggal_kadaluwarsa = request.POST["kadaluwarsa"]
-        getdetailobj.kuantitas = request.POST["kuantitas"]
-
-        getdetailobj.idpanen_mitra.save()
-        getdetailobj.save()
-        
-        models.ActivityLog(
-        user=request.user,
-        action="Update Panen Mitra",
-        description=(
-            f"Memperbarui data panen mitra: "
-            f"{getmitra.nama_mitra}, tanggal panen {getdetailobj.idpanen_mitra.tanggal_panen}"
-            )
-        ).save()
-                
-        messages.success(request, "Data panen mitra berhasil diperbarui!")
-        return redirect('read_panenmitra')
-            
-@login_required(login_url="login")
-@role_required(["owner"])    
-def delete_panenmitra(request,id) :
-    getdetailobj = models.detailpanenmitra.objects.get(iddetailpanen_mitra = id)
-    
-    nama_mitra = getdetailobj.idpanen_mitra.id_mitra.nama_mitra
-    tanggal_panen = getdetailobj.idpanen_mitra.tanggal_panen.strftime('%Y-%m-%d')
-    
-    models.ActivityLog(
-        user=request.user,
-        action="Hapus Panen Mitra",
-        description=f"Menghapus data panen mitra: {nama_mitra}, tanggal panen {tanggal_panen}"
-    ).savea()
-    
-    getdetailobj.delete()
-    messages.success(request, "Data berhasil dihapus!")
-    return redirect('read_panenmitra')
-
-'''PANEN LOKAL'''
-@login_required(login_url="login")
-@role_required(["owner",'admin','inspeksi']) 
-def read_panenlokal(request) :
-    panenlokal = models.detailpanenlokal.objects.all().order_by('idpanen_lokal__tanggal_panen')
-    if not panenlokal.exists() :
-        messages.error(request, 'Data Panen lokal Tidak Ditemukan!')
-        return render(request,'panen/panenlokal/read_panenlokal.html')
-    else :
-
-        return render(request,'panen/panenlokal/read_panenlokal.html',{
-            'panenlokal' : panenlokal,
-        })
-# @login_required(login_url="login")
-# @role_required(["owner"]) 
-# def create_panenlokal(request) :
-    
-#     allkomoditas = models.komoditas.objects.all()
-#     if request.method == "GET" :
-#         return render(request, 
-#                       'panen/panenlokal/create_panenlokal.html',{
-#                             'allkomoditas' : allkomoditas,
-#                       })
-#     else :
-#         tanggal_panen = request.POST["tanggal_panen"]
-#         komoditas = request.POST.getlist("komoditas")
-#         batch = request.POST.getlist("batch")
-#         kadaluwarsa = request.POST.getlist("kadaluwarsa")
-#         kuantitas = request.POST.getlist("kuantitas")
-       
-#         panen_lokal = models.panenlokal(
-#             tanggal_panen = tanggal_panen
-#         )
-
-#         panen_lokal.save()
-
-#         for komoditas,batch,kadaluwarsa,kuantitas in zip(komoditas,batch,kadaluwarsa,kuantitas) :
-#             models.detailpanenlokal(
-#                 idpanen_lokal = panen_lokal,
-#                 id_komoditas = models.komoditas.objects.get(
-#                     id_komoditas = komoditas
-#                 ),
-#                 batch = batch,
-#                 tanggal_kadaluwarsa = kadaluwarsa,
-#                 kuantitas = kuantitas,
-#             ).save()
-
-#         messages.success(request,"Data Panen lokal Berhasil Ditambahkan!")
-#         return redirect("read_panenlokal")
-            
-@login_required(login_url="login")
-@role_required(["owner"])
-def create_panenlokal(request):
-    allkomoditas = models.komoditas.objects.all()
-    alllokal = models.panenlokal.objects.all()
+    partners = models.Partner.objects.filter(partner_status=True)
+    commodities = models.Commodity.objects.all()
 
     if request.method == "GET":
-        return render(request, 'panen/panenlokal/create_panenlokal.html', {
-            'allkomoditas': allkomoditas,
-            'alllokal': alllokal
+        harvest_date = detail_obj.partner_harvest_id.harvest_date.strftime('%Y-%m-%d')
+        expiry_date = detail_obj.expiry_date.strftime('%Y-%m-%d')
+        return render(request, 'harvest/partner/update_partner_harvest.html', {
+            'detail_obj': detail_obj,
+            'partners': partners,
+            'commodities': commodities,
+            'harvest_date': harvest_date,
+            'expiry_date': expiry_date,
         })
 
     else:
-        tanggal_panen = request.POST["tanggal_panen"]
-        komoditas_list = request.POST.getlist("komoditas")
+        partner = models.Partner.objects.get(partner_id=request.POST["partner"])
+        commodity = models.Commodity.objects.get(commodity_id=request.POST["commodity"])
+
+        detail_obj.partner_harvest_id.partner_id = partner
+        detail_obj.partner_harvest_id.harvest_date = request.POST["harvest_date"]
+        detail_obj.commodity_id = commodity
+        detail_obj.batch = request.POST["batch"]
+        detail_obj.expiry_date = request.POST["expiry_date"]
+        detail_obj.quantity = request.POST["quantity"]
+
+        detail_obj.partner_harvest_id.save()
+        detail_obj.save()
+
+        models.ActivityLog(
+            user=request.user,
+            action="Update Partner Harvest",
+            description=(
+                f"Update partner harvest for {partner.partner_name}, "
+                f"harvest date {detail_obj.partner_harvest_id.harvest_date}"
+            )
+        ).save()
+
+        messages.success(request, "Partner harvest updated successfully!")
+        return redirect('read_partner_harvest')
+
+
+@login_required(login_url="login")
+@role_required(["owner"])
+def delete_partner_harvest(request, id):
+    try:
+        detail_obj = models.PartnerHarvestDetail.objects.get(partner_harvest_detail_id=id)
+    except models.PartnerHarvestDetail.DoesNotExist:
+        messages.error(request, "Partner harvest data not found!")
+        return redirect('read_partner_harvest')
+
+    partner_name = detail_obj.partner_harvest_id.partner_id.partner_name
+    harvest_date = detail_obj.partner_harvest_id.harvest_date.strftime('%Y-%m-%d')
+
+    models.ActivityLog(
+        user=request.user,
+        action="Delete Partner Harvest",
+        description=f"Deleted partner harvest: {partner_name}, harvest date {harvest_date}"
+    ).save()
+
+    detail_obj.delete()
+    messages.success(request, "Partner harvest deleted successfully!")
+    return redirect('read_partner_harvest')
+
+
+'''PANEN LOKAL'''
+@login_required(login_url="login")
+@role_required(["owner", "admin", "inspection"])
+def read_local_harvest(request):
+    harvests = models.LocalHarvestDetail.objects.all().order_by('local_harvest_id__harvest_date')
+    if not harvests.exists():
+        messages.error(request, "No Local Harvest data found!")
+        return render(request, 'harvest/local/read_local_harvest.html')
+    return render(request, 'harvest/local/read_local_harvest.html', {
+        'harvests': harvests,
+    })
+
+
+@login_required(login_url="login")
+@role_required(["owner"])
+def create_local_harvest(request):
+    all_commodities = models.Commodity.objects.all()
+
+    if request.method == "GET":
+        return render(request, 'harvest/local/create_local_harvest.html', {
+            'all_commodities': all_commodities,
+        })
+    else:
+        harvest_date = request.POST["harvest_date"]
+        commodity_list = request.POST.getlist("commodity")
         batch_list = request.POST.getlist("batch")
-        kadaluwarsa_list = request.POST.getlist("kadaluwarsa")
-        kuantitas_list = request.POST.getlist("kuantitas")
+        expiry_list = request.POST.getlist("expiry_date")
+        quantity_list = request.POST.getlist("quantity")
 
-        panen_lokal = models.panenlokal(
-            tanggal_panen=tanggal_panen,
+        local_harvest = models.LocalHarvest(
+            harvest_date=harvest_date
         )
-        panen_lokal.save()
+        local_harvest.save()
 
-        for komoditas_id, batch, kadaluwarsa, kuantitas in zip(komoditas_list, batch_list, kadaluwarsa_list, kuantitas_list):
-            komoditas_obj = models.komoditas.objects.get(id_komoditas=komoditas_id)
+        for commodity_id, batch, expiry_date, quantity in zip(
+            commodity_list, batch_list, expiry_list, quantity_list
+        ):
+            commodity_obj = models.Commodity.objects.get(commodity_id=commodity_id)
 
-
-            if not qr_already_generated(komoditas_id, kadaluwarsa):
-
-                models.detailpanenlokal(
-                    idpanen_lokal=panen_lokal,
-                    id_komoditas = models.komoditas.objects.get(
-                     id_komoditas = komoditas_id
-                 ),
+            if not qr_already_generated(commodity_id, expiry_date):
+                models.LocalHarvestDetail(
+                    local_harvest=local_harvest,
+                    commodity=commodity_obj,
                     batch=batch,
-                    tanggal_kadaluwarsa=kadaluwarsa,
-                    kuantitas=kuantitas,
+                    expiry_date=expiry_date,
+                    quantity=quantity,
                 ).save()
-                
-                komoditas_str = models.komoditas.objects.get(id_komoditas=komoditas_id)
+
                 qr_data = generate_qr_data(
-                    str(komoditas_str),
-                    kadaluwarsa,
-                    kuantitas
+                    str(commodity_obj),
+                    expiry_date,
+                    quantity
                 )
                 qr_image = generate_qr_image(qr_data)
 
                 response = HttpResponse(qr_image.getvalue(), content_type="image/png")
-                response['Content-Disposition'] = f'attachment; filename="qr_{komoditas_obj.nama_komoditas}_{komoditas_obj.id_grade.nama_grade}_{kadaluwarsa}.png"'
+                response['Content-Disposition'] = (
+                    f'attachment; filename="qr_{commodity_obj.commodity_name}_'
+                    f'{commodity_obj.grade_id.grade_name}_{expiry_date}.png"'
+                )
                 return response
             else:
-                
-                models.detailpanenlokal(
-                    idpanen_lokal=panen_lokal,
-                    id_komoditas = models.komoditas.objects.get(
-                     id_komoditas = komoditas_id
-                 ),
+                models.LocalHarvestDetail(
+                    local_harvest=local_harvest,
+                    commodity=commodity_obj,
                     batch=batch,
-                    tanggal_kadaluwarsa=kadaluwarsa,
-                    kuantitas=kuantitas,
+                    expiry_date=expiry_date,
+                    quantity=quantity,
                 ).save()
-                messages.warning(request, f"QR tidak dibuat karena data {komoditas_id} dengan kadaluarsa {kadaluwarsa} sudah ada.")
-                
-            komoditas1 = models.komoditas.objects.get(id_komoditas=komoditas_list[0])
-            nama_komoditas1 = komoditas1.nama_komoditas
-            nama_grade1 = komoditas1.id_grade.nama_grade
 
-            models.ActivityLog(
-                user=request.user,
-                action="Tambah Panen Lokal",
-                description=f"Menambahkan panen lokal tanggal {tanggal_panen} untuk komoditas {nama_komoditas1} - {nama_grade1}"
-            ).save()
-            
-    messages.success(request, "Data Panen lokal Berhasil Ditambahkan!")
-    return redirect("total_komoditas")
-    
-@login_required(login_url="login")
-@role_required(["owner",'inspeksi']) 
-def update_panenlokal(request, id):
-    try:
-        getdetailobj = models.detailpanenlokal.objects.get(iddetailpanen_lokal=id)
-        
-    except models.detailpanenlokal.DoesNotExist:
-        messages.error(request, "Data Panen lokal tidak ditemukan!")
-        return redirect('read_panenlokal')
-    allkomoditas = models.komoditas.objects.all()
-  
-    if request.method == "GET":
-        tanggal_panen = getdetailobj.idpanen_lokal.tanggal_panen.strftime('%Y-%m-%d')  # Format tanggal
-        tanggal_kadaluwarsa = getdetailobj.tanggal_kadaluwarsa.strftime('%Y-%m-%d')  # Format tanggal
-        return render(request, 'panen/panenlokal/update_panenlokal.html', {
-            'getdetailobj': getdetailobj,
-            'allkomoditas' : allkomoditas,
-            'tanggal_panen': tanggal_panen,
-            'tanggal_kadaluwarsa': tanggal_kadaluwarsa
-        })
-    else:     
-    
-        getkomoditas =models.komoditas.objects.get(id_komoditas=request.POST["komoditas"])
+                messages.warning(
+                    request,
+                    f"QR not created because data {commodity_id} with expiry {expiry_date} already exists."
+                )
 
-        getdetailobj.idpanen_lokal.tanggal_panen = request.POST["tanggal_panen"]
-        getdetailobj.id_komoditas = getkomoditas
-        getdetailobj.batch = request.POST["batch"]
-        getdetailobj.tanggal_kadaluwarsa = request.POST["kadaluwarsa"]
-        getdetailobj.kuantitas = request.POST["kuantitas"]
-
-        getdetailobj.idpanen_lokal.save()
-        getdetailobj.save()
-        
+        # log activity
+        first_commodity = models.Commodity.objects.get(commodity_id=commodity_list[0])
         models.ActivityLog(
             user=request.user,
-            action="Update Panen Lokal",
-            description=f"Memperbarui panen lokal tanggal {getdetailobj.idpanen_lokal.tanggal_panen} untuk komoditas {getkomoditas.nama_komoditas} (Grade {getkomoditas.id_grade.nama_grade})"
+            action="Add Local Harvest",
+            description=f"Added local harvest on {harvest_date} for commodity {first_commodity.commodity_name} - {first_commodity.grade.grade_name}"
         ).save()
-   
-        messages.success(request, "Data lokal berhasil diperbarui!")
-        return redirect('read_panenlokal')
-            
+
+        messages.success(request, "Local Harvest successfully added!")
+        return redirect("total_commodities")
+
+
 @login_required(login_url="login")
-@role_required(["owner"]) 
-def delete_panenlokal(request,id) :
-    getdetailobj = models.detailpanenlokal.objects.get(iddetailpanen_lokal = id)
-    
+@role_required(["owner", "inspection"])
+def update_local_harvest(request, id):
+    try:
+        detail_obj = models.LocalHarvestDetail.objects.get(local_harvest_detail_id=id)
+    except models.LocalHarvestDetail.DoesNotExist:
+        messages.error(request, "Local Harvest data not found!")
+        return redirect('read_local_harvest')
+
+    all_commodities = models.Commodity.objects.all()
+
+    if request.method == "GET":
+        harvest_date = detail_obj.local_harvest_id.harvest_date.strftime('%Y-%m-%d')
+        expiry_date = detail_obj.expiry_date.strftime('%Y-%m-%d')
+        return render(request, 'harvest/local/update_local_harvest.html', {
+            'detail_obj': detail_obj,
+            'all_commodities': all_commodities,
+            'harvest_date': harvest_date,
+            'expiry_date': expiry_date
+        })
+    else:
+        commodity_obj = models.Commodity.objects.get(commodity_id=request.POST["commodity"])
+
+        detail_obj.local_harvest_id.harvest_date = request.POST["harvest_date"]
+        detail_obj.commodity_id = commodity_obj
+        detail_obj.batch = request.POST["batch"]
+        detail_obj.expiry_date = request.POST["expiry_date"]
+        detail_obj.quantity = request.POST["quantity"]
+
+        detail_obj.local_harvest_id.save()
+        detail_obj.save()
+
+        models.ActivityLog(
+            user=request.user,
+            action="Update Local Harvest",
+            description=f"Updated local harvest on {detail_obj.local_harvest_id.harvest_date} for commodity {commodity_obj.commodity_name} - {commodity_obj.grade.grade_name}"
+        ).save()
+
+        messages.success(request, "Local Harvest updated successfully!")
+        return redirect('read_local_harvest')
+
+
+@login_required(login_url="login")
+@role_required(["owner"])
+def delete_local_harvest(request, id):
+    try:
+        detail_obj = models.LocalHarvestDetail.objects.get(local_harvest_detail_id=id)
+    except models.LocalHarvestDetail.DoesNotExist:
+        messages.error(request, "Local Harvest data not found!")
+        return redirect('read_local_harvest')
+
     models.ActivityLog(
         user=request.user,
-        action="Hapus Panen Lokal",
-        description=f"Menghapus data panen lokal tanggal {getdetailobj.idpanen_lokal.tanggal_panen} untuk komoditas {getdetailobj.id_komoditas.nama_komoditas} (Grade {getdetailobj.id_komoditas.id_grade.nama_grade})"
+        action="Delete Local Harvest",
+        description=f"Deleted local harvest on {detail_obj.local_harvest_id.harvest_date} for commodity {detail_obj.commodity.commodity_name} - {detail_obj.commodity.grade.grade_name}"
     ).save()
 
-    getdetailobj.delete()
-    messages.success(request, "Data berhasil dihapus!")
-    return redirect('read_panenlokal')
+    detail_obj.delete()
+    messages.success(request, "Local Harvest deleted successfully!")
+    return redirect('read_local_harvest')
 
-
-'''READ AKUMULASI PENIMBANGAN'''
+'''READ HARVEST WEIGHT (PARTNER)'''
 @login_required(login_url="login")
-@role_required(["owner","admin","inspeksi"]) 
-def read_penimbanganmitra(request) :
-       
-    detailobj = models.detailpanenmitra.objects.values('idpanen_mitra__id_mitra__nama_mitra','id_komoditas__nama_komoditas','id_komoditas__id_grade__nama_grade','idpanen_mitra__tanggal_panen','tanggal_kadaluwarsa').annotate(kuantitas_total = Sum('kuantitas')).order_by('idpanen_mitra__tanggal_panen')
-    print("detail obj :" ,detailobj)
-    return render(request,'panen/penimbangan/read_penimbanganmitra.html',{
-        'penimbangan' : detailobj,
+@role_required(["owner", "admin", "inspection"]) 
+def read_partner_weight(request):
+    detail_obj = models.PartnerHarvestDetail.objects.values(
+        'partner_harvest_id__partner_id__partner_name',
+        'commodity_id__commodity_name',
+        'commodity_id__grade_id__grade_name',
+        'partner_harvest_id__harvest_date',
+        'expiry_date'
+    ).annotate(
+        total_quantity=Sum('quantity')
+    ).order_by('partner_harvest_id__harvest_date')
+
+    if not detail_obj.exists():
+        messages.error(request, "No Partner Harvest Weight Data Found!")
+
+    return render(request, 'harvest/weight/read_partner_weight.html', {
+        'weights': detail_obj,
     })
+
+
+'''READ HARVEST WEIGHT (LOCAL)'''
 @login_required(login_url="login")
-@role_required(["owner","admin","inspeksi"]) 
-def read_penimbanganlokal(request) :
-   
-    detailobj = models.detailpanenlokal.objects.values('id_komoditas__nama_komoditas','id_komoditas__id_grade__nama_grade','idpanen_lokal__tanggal_panen','tanggal_kadaluwarsa').annotate(kuantitas_total = Sum('kuantitas')).order_by('idpanen_lokal__tanggal_panen')
+@role_required(["owner", "admin", "inspection"]) 
+def read_local_weight(request):
+    detail_obj = models.LocalHarvestDetail.objects.values(
+        'commodity_id__commodity_id_name',
+        'commodity_id__grade_id__grade_name',
+        'local_harvest_id__harvest_date',
+        'expiry_date'
+    ).annotate(
+        total_quantity=Sum('quantity')
+    ).order_by('local_harvest_id__harvest_date')
 
-    print(detailobj)
-    return render(request,'panen/penimbangan/read_penimbanganlokal.html',{
-        'penimbangan' : detailobj,
+    if not detail_obj.exists():
+        messages.error(request, "No Local Harvest Weight Data Found!")
+
+    return render(request, 'harvest/weight/read_local_weight.html', {
+        'weights': detail_obj,
     })
 
 
-'''CRUD JENIS BIAYA'''
+'''CRUD COST TYPE'''
 @login_required(login_url="login")
-@role_required(["owner","admin"]) 
-def read_jenisbiaya(request) :
-    biayaobj = models.jenisbiaya.objects.all()
-    if not biayaobj.exists() :
-        messages.error(request,"Data Jenis Biaya Tidak Ditemukan")
-    
-    return render(request,'biaya/jenis/read_jenisbiaya.html',{
-        'biayaobj' : biayaobj
+@role_required(["owner", "admin"]) 
+def read_cost_type(request):
+    cost_types = models.CostType.objects.all()
+    if not cost_types.exists():
+        messages.error(request, "No Cost Type Data Found")
+
+    return render(request, 'cost/type/read_cost_type.html', {
+        'cost_types': cost_types
     })
+
 
 @login_required(login_url="login")
 @role_required(["owner"]) 
-def create_jenisbiaya(request) :
-    if request.method == "GET" :
-        return render(request, 
-                      'biaya/jenis/create_jenisbiaya.html')
-    else :
-        jenis_biaya = request.POST["jenis_biaya"]
-        biayaobj = models.jenisbiaya.objects.filter(jenis_biaya=jenis_biaya)
-        
-        if len(biayaobj) >0:
-            messages.error(request,"Jenis Biaya Sudah Ada")
-        else :
-            models.jenisbiaya(
-                jenis_biaya = jenis_biaya,
-            ).save()
+def create_cost_type(request):
+    if request.method == "GET":
+        return render(request, 'cost/type/create_cost_type.html')
+    else:
+        cost_type_name = request.POST["cost_type_name"]
+        cost_type_obj = models.CostType.objects.filter(cost_type_name=cost_type_name)
 
-            messages.success(request,"Data Biaya Berhasil Ditambahkan!")
+        if cost_type_obj.exists():
+            messages.error(request, "Cost Type Already Exists")
+        else:
+            models.CostType(cost_type_name=cost_type_name).save()
+            messages.success(request, "Cost Type Added Successfully!")
 
-        return redirect("read_jenisbiaya")
-    
-@login_required(login_url="login")
-@role_required(["owner"]) 
-def update_jenisbiaya(request,id) :
-    try :
-        getbiayaobj = models.jenisbiaya.objects.get(idjenisbiaya = id)
-    except models.jenisbiaya.DoesNotExist :
-        messages.error(request,"Jenis Biaya Tidak Ditemukan!")
+        return redirect("read_cost_type")
 
-    if request.method == "GET" :
-        return render(request, 
-                      'biaya/jenis/update_jenisbiaya.html',{
-                          'biayaobj' : getbiayaobj
-                      })
-    else :
-        jenis_biaya = request.POST["jenis_biaya"]
-        print("jenis biaya :", jenis_biaya)
-        if models.jenisbiaya.objects.filter(jenis_biaya=jenis_biaya).exclude(idjenisbiaya=id).exists():
-            messages.error(request, "Nama Biaya Sudah Ada!")
-            return redirect('read_jenisbiaya')
-        
-        getbiayaobj.jenis_biaya = jenis_biaya
-        getbiayaobj.save()
-        messages.success(request,"Data Biaya Berhasil Ditambahkan!")
-        return redirect("read_jenisbiaya")
 
 @login_required(login_url="login")
 @role_required(["owner"]) 
-def delete_jenisbiaya(request,id) :
-    getbiayaobj = models.jenisbiaya.objects.get(idjenisbiaya = id)
-    getbiayaobj.delete()
-    messages.success(request,"Data Berhasil Dihapus")
-    return redirect('read_jenisbiaya')
+def update_cost_type(request, id):
+    try:
+        cost_type_obj = models.CostType.objects.get(cost_type_id=id)
+    except models.CostType.DoesNotExist:
+        messages.error(request, "Cost Type Not Found!")
+        return redirect("read_cost_type")
 
-
-'''CRUD DETAIL BIAYA'''
-@login_required(login_url="login")
-@role_required(["owner","admin","produksi"])
-def read_detailbiaya(request) :
-    biayaobj = models.biaya.objects.all().order_by('tanggal')
-    if not biayaobj.exists() :
-        messages.error(request,"Data Biaya Tidak Ditemukan!")
-    
-   
-    return render(request,'biaya/detail/read_detailbiaya.html',{
-        'biayaobj' : biayaobj
-    })
-
-@login_required(login_url="login")
-@role_required(["owner","admin","produksi"]) 
-def create_detailbiaya(request) :
-    alljenisbiaya = models.jenisbiaya.objects.all()
-    if request.method == "GET" :
-        return render(request,'biaya/detail/create_detailbiaya.html',{
-            'alljenisbiaya' : alljenisbiaya
+    if request.method == "GET":
+        return render(request, 'cost/type/update_cost_type.html', {
+            'cost_type': cost_type_obj
         })
-    else :
-        jenis_biaya = request.POST["jenis_biaya"]
-        tanggal = request.POST['tanggal']
-        nama_biaya = request.POST['nama_biaya']
-        nominal_biaya = request.POST['nominal_biaya']
+    else:
+        cost_type_name = request.POST["cost_type_name"]
+        if models.CostType.objects.filter(cost_type_name=cost_type_name).exclude(cost_type_id=id).exists():
+            messages.error(request, "Cost Type Name Already Exists!")
+            return redirect('read_cost_type')
 
-        jenisbiaya = models.jenisbiaya.objects.get(jenis_biaya=jenis_biaya)
+        cost_type_obj.cost_type_name = cost_type_name
+        cost_type_obj.save()
+        messages.success(request, "Cost Type Updated Successfully!")
+        return redirect("read_cost_type")
 
-        models.biaya(
-            idjenisbiaya = jenisbiaya,
-            tanggal = tanggal,
-            nama_biaya = nama_biaya,
-            nominal_biaya = nominal_biaya
+
+@login_required(login_url="login")
+@role_required(["owner"]) 
+def delete_cost_type(request, id):
+    try:
+        cost_type_obj = models.CostType.objects.get(cost_type_id=id)
+        cost_type_obj.delete()
+        messages.success(request, "Cost Type Deleted Successfully")
+    except models.CostType.DoesNotExist:
+        messages.error(request, "Cost Type Not Found!")
+
+    return redirect('read_cost_type')
+
+
+'''CRUD COST DETAIL'''
+@login_required(login_url="login")
+@role_required(["owner", "admin", "production"])
+def read_cost_detail(request):
+    cost_obj = models.Cost.objects.all().order_by('date')
+    if not cost_obj.exists():
+        messages.error(request, "No Cost Detail Data Found!")
+
+    return render(request, 'cost/detail/read_cost_detail.html', {
+        'cost_obj': cost_obj
+    })
+
+
+@login_required(login_url="login")
+@role_required(["owner", "admin", "production"]) 
+def create_cost_detail(request):
+    all_cost_types = models.CostType.objects.all()
+    if request.method == "GET":
+        return render(request, 'cost/detail/create_cost_detail.html', {
+            'all_cost_types': all_cost_types
+        })
+    else:
+        cost_type_name = request.POST["cost_type_name"]
+        date = request.POST['date']
+        cost_name = request.POST['cost_name']
+        cost_amount = request.POST['cost_amount']
+
+        cost_type = models.CostType.objects.get(cost_type_name=cost_type_name)
+
+        models.Cost(
+            cost_type_id=cost_type,
+            date=date,
+            cost_name=cost_name,
+            cost_amount=cost_amount
         ).save()
 
-        messages.success(request,"Data Biaya Berhasil Ditambahkan")
-        return redirect("read_detailbiaya")
+        messages.success(request, "Cost Detail Added Successfully")
+        return redirect("read_cost_detail")
+
 
 @login_required(login_url="login")
-@role_required(["owner","admin", "produksi"])    
-def update_detailbiaya(request, id):
+@role_required(["owner", "admin", "production"])    
+def update_cost_detail(request, id):
     try:
-        getdetailobj = models.biaya.objects.get(idbiaya=id)
-        
-    except models.biayaa.DoesNotExist:
-        messages.error(request, "Data Biaya tidak ditemukan!")
-        return redirect('read_detailbiaya')
+        cost_detail_obj = models.Cost.objects.get(cost_id=id)
+    except models.Cost.DoesNotExist:
+        messages.error(request, "Cost Detail Not Found!")
+        return redirect('read_cost_detail')
   
-    allbiayaobj = models.jenisbiaya.objects.all()
+    all_cost_types = models.CostType.objects.all()
   
     if request.method == "GET":
-        tanggal = getdetailobj.tanggal.strftime('%Y-%m-%d')  # Format tanggal
-        return render(request, 'biaya/detail/update_detailbiaya.html', {
-            'getdetailobj': getdetailobj,
-            'allbiayaobj' : allbiayaobj,
-            'tanggal': tanggal,
+        date = cost_detail_obj.date.strftime('%Y-%m-%d')  # format date
+        return render(request, 'cost/detail/update_cost_detail.html', {
+            'cost_detail': cost_detail_obj,
+            'all_cost_types': all_cost_types,
+            'date': date,
         })
     else:    
-        getjenisbiaya = models.jenisbiaya.objects.get(jenis_biaya=request.POST["jenis_biaya"])
-        
+        cost_type = models.CostType.objects.get(cost_type_name=request.POST["cost_type_name"])
 
-        getdetailobj.idjenisbiayaa = getjenisbiaya
-        getdetailobj.tanggal = request.POST['tanggal']
-        getdetailobj.nama_biaya = request.POST["nama_biaya"]
-        getdetailobj.nominal_biaya = request.POST["nominal_biaya"]
+        cost_detail_obj.cost_type_id = cost_type
+        cost_detail_obj.date = request.POST['date']
+        cost_detail_obj.cost_name = request.POST["cost_name"]
+        cost_detail_obj.cost_amount = request.POST["cost_amount"]
 
-        # getdetailobj.idjenisbiaya.jenis_biaya.save()
-        getdetailobj.save()
+        cost_detail_obj.save()
         
-        messages.success(request, "Data Detail Biaya berhasil diperbarui!")
-        return redirect('read_detailbiaya')
+        messages.success(request, "Cost Detail Updated Successfully!")
+        return redirect('read_cost_detail')
     
+
 @login_required(login_url="login")
 @role_required(["owner"])    
-def delete_detailbiaya(request,id) :
-    getdetailobj = models.biaya.objects.get(idbiaya = id)
-    getdetailobj.delete()
-    messages.success(request,"Data Berhasil Dihapus!")
-    return redirect('read_detailbiaya')
+def delete_cost_detail(request, id):
+    try:
+        cost_detail_obj = models.Cost.objects.get(cost_detail_id=id)
+        cost_detail_obj.delete()
+        messages.success(request, "Cost Detail Deleted Successfully!")
+    except models.Cost.DoesNotExist:
+        messages.error(request, "Cost Detail Not Found!")
+
+    return redirect('read_cost_detail')
 
 
-''' CRUD PRODUKSI'''
+
+'''CRUD PRODUCTION'''
 @login_required(login_url="login")
-@role_required(["owner","admin","produksi"]) 
-def read_produksi(request) :
-    produksiobj = models.detailproduksi.objects.all()
-    if not produksiobj.exists() :
-        messages.error(request,"Data Produksi Tidak Ditemukan!")
+@role_required(["owner", "admin", "production"]) 
+def read_production(request):
+    production_details = models.ProductionDetail.objects.all()
+    if not production_details.exists():
+        messages.error(request, "No Production Data Found!")
 
-    return render(request,"produksi/read_produksi.html",{
-        'produksiobj' : produksiobj
+    return render(request, "production/read_production.html", {
+        'production_details': production_details
     })
 
+
 @login_required(login_url="login")
-@role_required(["owner","admin","produksi"]) 
-def create_produksi(request) :
-    produkobj = models.produk.objects.all()
-    if request.method == 'GET' :
-        return render(request,"produksi/create_produksi.html",{
-            'produkobj' : produkobj
+@role_required(["owner", "admin", "production"]) 
+def create_production(request):
+    products = models.Product.objects.all()
+    if request.method == 'GET':
+        return render(request, "production/create_production.html", {
+            'products': products
         })
-        
-    else :
-        tanggal = request.POST['tanggal']
-        status_produk = request.POST.getlist('status_produk')
-        produk = request.POST.getlist('produk')
-        kuantitas = request.POST.getlist('kuantitas')
+    else:
+        date = request.POST['date']
+        product_status_list = request.POST.getlist('product_status')
+        product_list = request.POST.getlist('product_id')
+        quantity_list = request.POST.getlist('product_quantity')
 
-        produksi = models.produksi(
-            tanggal=tanggal,
+        production = models.Production(
+            date=date,
         )
+        production.save()
 
-        log_produk = []
-        log_kuantitas = []
+        log_products = []
+        log_quantities = []
         
-        produksi.save()
-        for status_produk,produk,kuantitas in zip(status_produk,produk,kuantitas) :
-            produk_obj = models.produk.objects.get(id_produk=produk)
-            models.detailproduksi(
-                id_produk=models.produk.objects.get(id_produk = produk),
-                id_produksi = produksi,
-                kuantitas_produk = kuantitas,
-                status_produk = status_produk
+        for status, product_id, quantity in zip(product_status_list, product_list, quantity_list):
+            product_obj = models.Product.objects.get(product_id=product_id)
+            models.ProductionDetail(
+                product_id=product_obj,
+                production_id=production,
+                product_quantity=quantity,
+                product_status=status
             ).save()
-            log_produk.append(f"{produk_obj.nama_produk}")
-            log_kuantitas.append(f"{kuantitas}")
+            log_products.append(f"{product_obj.product_name}")
+            log_quantities.append(f"{quantity}")
         
-        log_deskripsi = f"Menambahkan produksi tanggal {tanggal}:\n"
-        for produk, kuantitas in zip(log_produk, log_kuantitas):
-            log_deskripsi += f"- Produk: {produk}, Kuantitas: {kuantitas}\n"
+        log_description = f"Added production on {date}:\n"
+        for prod, qty in zip(log_products, log_quantities):
+            log_description += f"- Product: {prod}, Quantity: {qty}\n"
 
         models.ActivityLog(
             user=request.user,
-            action="Tambah Produksi",
-            description=log_deskripsi.strip()
+            action="Add Production",
+            description=log_description.strip()
         ).save()
-        
-        messages.success(request,"Data Status Produk Berhasil Disimpan!")
-        return redirect("read_produksi")
+        print("STATUS LIST:", product_status_list)
+        print("PRODUCT LIST:", product_list)
+        print("QUANTITY LIST:", quantity_list)
+        messages.success(request, "Production Data Saved Successfully!")
+        return redirect("read_production")
 
+
+''' UPDATE & DELETE PRODUCTION '''
 @login_required(login_url="login")
-@role_required(["owner","admin","produksi"])   
-def update_produksi(request,id) :
-    getproduksi = models.detailproduksi.objects.get(iddetail_produksi = id)
-    produkobj = models.produk.objects.all()
-    if request.method == 'GET' :
-        tanggal =getproduksi.id_produksi.tanggal.strftime('%Y-%m-%d')
-        return render(request,"produksi/update_produksi.html",{
-            'getproduksi' : getproduksi,
-            'produkobj' : produkobj,
-            'tanggal' : tanggal
+@role_required(["owner", "admin", "production"])   
+def update_production(request, id):
+    production_detail = models.ProductionDetail.objects.get(production_detail_id=id)
+    products = models.Product.objects.all()
+
+    if request.method == 'GET':
+        date = production_detail.production_id.date.strftime('%Y-%m-%d')
+        return render(request, "production/update_production.html", {
+            'production_detail': production_detail,
+            'products': products,
+            'date': date
         })
-    else :
-        getproduk = models.produk.objects.get(id_produk = request.POST['produk'])
+    else:
+        product_obj = models.Product.objects.get(product_id=request.POST['product'])
         
-        produk_lama = getproduksi.id_produk.nama_produk
-        kuantitas_lama = getproduksi.kuantitas_produk
-        status_lama = getproduksi.status_produk
-        tanggal_lama = getproduksi.id_produksi.tanggal.strftime('%Y-%m-%d')
+        old_product = production_detail.product_id.product_name
+        old_quantity = production_detail.product_quantity
+        old_status = production_detail.product_status
+        old_date = production_detail.production_id.date.strftime('%Y-%m-%d')
 
-        tanggal_baru = request.POST['tanggal']
-        status_baru = request.POST['status_produk']
-        kuantitas_baru = request.POST['kuantitas']
+        new_date = request.POST['date']
+        new_status = request.POST['product_status']
+        new_quantity = request.POST['quantity']
 
-        getproduksi.id_produksi.tanggal = tanggal_baru
-        getproduksi.status_produk = status_baru
-        getproduksi.id_produk = getproduk
-        getproduksi.kuantitas_produk = kuantitas_baru
+        production_detail.production_id.date = new_date
+        production_detail.product_status = new_status
+        production_detail.product_id = product_obj
+        production_detail.product_quantity = new_quantity
+        production_detail.production_id.save()
+        production_detail.save()
         
         models.ActivityLog.objects.create(
             user=request.user,
-            action="Update Produksi",
+            action="Update Production",
             description=(
-                f"Memperbarui produksi tanggal {tanggal_lama} menjadi {tanggal_baru}:\n"
-                f"- Produk: {produk_lama} menjadi {getproduk.nama_produk}\n"
-                f"- Kuantitas: {kuantitas_lama} menjadi {kuantitas_baru}\n"
-                f"- Status: {status_lama} menjadi {status_baru}"
+                f"Updated production from {old_date} to {new_date}:\n"
+                f"- Product: {old_product} → {product_obj.product_name}\n"
+                f"- Quantity: {old_quantity} → {new_quantity}\n"
+                f"- Status: {old_status} → {new_status}"
             )
         )
 
-        messages.success(request, "Data produksi berhasil diperbarui!")
-        return redirect('read_produksi')
+        messages.success(request, "Production data updated successfully!")
+        return redirect('read_production')
     
+
 @login_required(login_url="login")
 @role_required(["owner"])      
-def delete_produksi(request,id) :
-    getproduksi = models.detailproduksi.objects.get(iddetail_produksi = id)
-    nama_produk = getproduksi.id_produk.nama_produk
-    kuantitas = getproduksi.kuantitas_produk
-    tanggal = getproduksi.id_produksi.tanggal.strftime('%Y-%m-%d')
+def delete_production(request, id):
+    production_detail = models.ProductionDetail.objects.get(production_detail_id=id)
+    product_name = production_detail.product_id.product_name
+    quantity = production_detail.product_quantity
+    date = production_detail.production_id.date.strftime('%Y-%m-%d')
 
-    getproduksi.delete()
+    production_detail.delete()
 
     models.ActivityLog.objects.create(
         user=request.user,
-        action="Hapus Produksi",
-        description=f"Menghapus data produksi tanggal {tanggal} untuk produk {nama_produk} sebanyak {kuantitas} unit."
+        action="Delete Production",
+        description=f"Deleted production on {date} for product {product_name} with quantity {quantity} units."
     )
-    messages.success(request, "Data produksi berhasil dihapus!")
-    return redirect('read_produksi')
+    messages.success(request, "Production data deleted successfully!")
+    return redirect('read_production')
 
 
-'''LAPORAN PANEN'''
+''' HARVEST REPORT '''
 @login_required(login_url="login")
 @role_required(["owner"]) 
-def laporan_panen(request) :
-    mulai = request.GET.get('mulai')
-    akhir = request.GET.get('akhir')
-    jenis_panen = request.GET.get('jenis_panen')
-    if mulai and akhir  :
-        mulai_date = datetime.strptime(mulai, "%Y-%m-%d")
-        akhir_date = datetime.strptime(akhir, "%Y-%m-%d")
-        if jenis_panen == 'panen lokal' :
+def harvest_report(request):
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+    harvest_type = request.GET.get('harvest_type')
 
-            panenlokalobj = models.panenlokal.objects.filter(tanggal_panen__range = (mulai,akhir)).order_by('tanggal_panen')
-            detailobjlokal = []
-            listgrandtotal = []
-            for item in panenlokalobj :
-                listdetail = []
-                listhargabeli = []
-                idpanen_lokal = item.idpanen_lokal
-            
-                filterdetailpanen = models.detailpanenlokal.objects.filter(idpanen_lokal = idpanen_lokal)
+    if start and end:
+        start_date = datetime.strptime(start, "%Y-%m-%d")
+        end_date = datetime.strptime(end, "%Y-%m-%d")
 
+        if harvest_type == 'local harvest':
+            harvest_local = models.LocalHarvest.objects.filter(date__range=(start, end)).order_by('harvest_date')
+            detail_local = []
+            total_list = []
 
-                if not filterdetailpanen.exists() :
+            for item in harvest_local:
+                detail_list = []
+                purchase_prices = []
+                harvest_id = item.local_harvest_id
+
+                harvest_details = models.LocalHarvestDetail.objects.filter(harvest_local=harvest_id)
+                if not harvest_details.exists():
                     continue
 
-                for i in filterdetailpanen :
-                    hargapembelian = i.id_komoditas.harga_beli * i.kuantitas
-                    print('harga beli' ,hargapembelian)
-                    listhargabeli.append(hargapembelian)
-                print(listhargabeli)
-                totalbeli = sum(listhargabeli)
-                listdetail.append(item)
-                listdetail.append(filterdetailpanen)
-                listdetail.append(listhargabeli)
-                listdetail.append(totalbeli)
+                for detail in harvest_details:
+                    purchase_price = detail.commodity_id.purchase_price * detail.quantity
+                    purchase_prices.append(purchase_price)
 
-                listgrandtotal.append(totalbeli)
-                detailobjlokal.append(listdetail)
+                total_purchase = sum(purchase_prices)
+                detail_list.extend([item, harvest_details, purchase_prices, total_purchase])
 
-            grandtotallokal = sum(listgrandtotal)
-            print(listgrandtotal)
-            print(grandtotallokal)
-            print(detailobjlokal)
-            return render(request,'laporan/laporan_panen.html',{
-            'detailobjlokal' :detailobjlokal,
-            'grandtotallokal' :grandtotallokal,
-            'mulai' : mulai_date,
-            'akhir' :akhir_date,
-            'jenis_panen' : jenis_panen
-        })
-        else :
-            panenmitraobj = models.panenmitra.objects.filter(tanggal_panen__range = (mulai,akhir)).order_by('tanggal_panen')
-       
-            detailobj = []
-            listgrandtotal = []
-            for item in panenmitraobj :
-                listdetail = []
-                listhargabeli = []
-                idpanen_mitra = item.idpanen_mitra
-            
-                filterdetailpanen = models.detailpanenmitra.objects.filter(idpanen_mitra = idpanen_mitra)
+                total_list.append(total_purchase)
+                detail_local.append(detail_list)
 
-                
-                if not filterdetailpanen.exists() :
-                    continue
+            grand_total_local = sum(total_list)
 
-                for i in filterdetailpanen :
-                    hargapembelian = i.id_komoditas.harga_beli * i.kuantitas
-                    print('harga beli' ,hargapembelian)
-                    listhargabeli.append(hargapembelian)
-                print(listhargabeli)
-                totalbeli = sum(listhargabeli)
-                listdetail.append(item)
-                listdetail.append(filterdetailpanen)
-                listdetail.append(listhargabeli)
-                listdetail.append(totalbeli)
-
-                listgrandtotal.append(totalbeli)
-                detailobj.append(listdetail)
-
-
-            grandtotal = sum(listgrandtotal)
-            print(listgrandtotal)
-            print(grandtotal)
-            print(detailobj)
-
-            return render(request,'laporan/laporan_panen.html',{
-            'detailobj' :detailobj,
-            'grandtotal' :grandtotal,
-            'mulai' : mulai_date,
-            'akhir' :akhir_date,
-            'jenis_panen' : jenis_panen
-        })
-            
-    else :
-        if jenis_panen == 'panen lokal' :
-            
-            panenlokalobj = models.panenlokal.objects.all().order_by('tanggal_panen')
-            detailobjlokal = []
-            listgrandtotal = []
-            for item in panenlokalobj :
-                listdetail = []
-                listhargabeli = []
-                idpanen_lokal = item.idpanen_lokal
-            
-                filterdetailpanen = models.detailpanenlokal.objects.filter(idpanen_lokal = idpanen_lokal)
-
-                
-                if not filterdetailpanen.exists() :
-                    continue
-
-                for i in filterdetailpanen :
-                    hargapembelian = i.id_komoditas.harga_beli * i.kuantitas
-                    print('harga beli' ,hargapembelian)
-                    listhargabeli.append(hargapembelian)
-                totalbeli = sum(listhargabeli)
-                listdetail.append(item)
-                listdetail.append(filterdetailpanen)
-                listdetail.append(listhargabeli)
-                listdetail.append(totalbeli)
-
-                listgrandtotal.append(totalbeli)
-                detailobjlokal.append(listdetail)
-            grandtotallokal = sum(listgrandtotal)
-            print(listgrandtotal)
-            print(grandtotallokal)
-            print(detailobjlokal)
-
-            return render(request,'laporan/laporan_panen.html',{
-            'detailobjlokal' :detailobjlokal,
-            'grandtotallokal' :grandtotallokal,
-            'jenis_panen' : jenis_panen,
-   
-        })
-        else :
-            jenis_panen = 'panen mitra'
-            panenmitraobj = models.panenmitra.objects.all().order_by('tanggal_panen')
-         
-            detailobj = []
-            listgrandtotal = []
-            for item in panenmitraobj :
-                
-                listdetail = []
-                listhargabeli = []
-                idpanen_mitra = item.idpanen_mitra
-                filterdetailpanen = models.detailpanenmitra.objects.filter(idpanen_mitra = idpanen_mitra)
-
-                if not filterdetailpanen.exists() :
-                    continue
-                
-                for i in filterdetailpanen :
-                    hargapembelian = i.id_komoditas.harga_beli * i.kuantitas
-                    print('harga beli' ,hargapembelian)
-                    listhargabeli.append(hargapembelian)
-                totalbeli = sum(listhargabeli)
-                listdetail.append(item)
-                listdetail.append(filterdetailpanen)
-                listdetail.append(listhargabeli)
-                listdetail.append(totalbeli)
-
-                listgrandtotal.append(totalbeli)
-                detailobj.append(listdetail)
-
-            grandtotal = sum(listgrandtotal)
-            print(listgrandtotal)
-            print(grandtotal)
-            print(detailobj)
-
-
-
-
-
-            return render(request,'laporan/laporan_panen.html',{
-                'detailobj' :detailobj,
-                'grandtotal' :grandtotal,
-                'jenis_panen' : jenis_panen,
-     
+            return render(request, 'report/harvest_report.html', {
+                'detail_local': detail_local,
+                'grand_total_local': grand_total_local,
+                'start': start_date,
+                'end': end_date,
+                'harvest_type': harvest_type
             })
-'''LAPORAN LABA RUGI'''
+
+        else:  # partner harvest
+            harvest_partner = models.PartnerHarvest.objects.filter(date__range=(start, end)).order_by('harvest_date')
+            detail_partner = []
+            total_list = []
+
+            for item in harvest_partner:
+                detail_list = []
+                purchase_prices = []
+                harvest_id = item.partner_harvest_id
+
+                harvest_details = models.PartnerHarvestDetail.objects.filter(partner_harvest_id=harvest_id)
+                if not harvest_details.exists():
+                    continue
+
+                for detail in harvest_details:
+                    purchase_price = detail.commodity_id.purchase_price * detail.quantity
+                    purchase_prices.append(purchase_price)
+
+                total_purchase = sum(purchase_prices)
+                detail_list.extend([item, harvest_details, purchase_prices, total_purchase])
+
+                total_list.append(total_purchase)
+                detail_partner.append(detail_list)
+
+            grand_total = sum(total_list)
+
+            return render(request, 'report/harvest_report.html', {
+                'detail_partner': detail_partner,
+                'grand_total': grand_total,
+                'start': start_date,
+                'end': end_date,
+                'harvest_type': harvest_type
+            })
+
+    else:
+        if harvest_type == 'local harvest':
+            harvest_local = models.LocalHarvest.objects.all().order_by('harvest_date')
+            detail_local = []
+            total_list = []
+
+            for item in harvest_local:
+                detail_list = []
+                purchase_prices = []
+                harvest_id = item.local_harvest_id
+
+                harvest_details = models.LocalHarvestDetail.objects.filter(harvest_local=harvest_id)
+                if not harvest_details.exists():
+                    continue
+
+                for detail in harvest_details:
+                    purchase_price = detail.commodity_id.purchase_price * detail.quantity
+                    purchase_prices.append(purchase_price)
+
+                total_purchase = sum(purchase_prices)
+                detail_list.extend([item, harvest_details, purchase_prices, total_purchase])
+
+                total_list.append(total_purchase)
+                detail_local.append(detail_list)
+
+            grand_total_local = sum(total_list)
+
+            return render(request, 'report/harvest_report.html', {
+                'detail_local': detail_local,
+                'grand_total_local': grand_total_local,
+                'harvest_type': harvest_type
+            })
+
+        else:  # partner harvest
+            harvest_type = 'partner harvest'
+            harvest_partner = models.PartnerHarvest.objects.all().order_by('harvest_date')
+            detail_partner = []
+            total_list = []
+
+            for item in harvest_partner:
+                detail_list = []
+                purchase_prices = []
+                harvest_id = item.partner_harvest_id
+
+                harvest_details = models.PartnerHarvestDetail.objects.filter(partner_harvest_id=harvest_id)
+                if not harvest_details.exists():
+                    continue
+
+                for detail in harvest_details:
+                    purchase_price = detail.commodity_id.purchase_price * detail.quantity
+                    purchase_prices.append(purchase_price)
+
+                total_purchase = sum(purchase_prices)
+                detail_list.extend([item, harvest_details, purchase_prices, total_purchase])
+
+                total_list.append(total_purchase)
+                detail_partner.append(detail_list)
+
+            grand_total = sum(total_list)
+
+            return render(request, 'report/harvest_report.html', {
+                'detail_partner': detail_partner,
+                'grand_total': grand_total,
+                'harvest_type': harvest_type
+            })
+            
 @login_required(login_url="login")
 @role_required(["owner"]) 
-def laporan_labarugi(request) :
-    if len(request.GET) == 0 :
-        return render(request,'laporan/laporan_labarugi.html') 
-    else :
-        bulan = request.GET['bulan']
-        print(bulan)
-        year, month = map(int, bulan.split('-'))
-        bulanaja = calendar.month_name[month]
-        bulan_fix = bulan_indo[bulanaja]
-        print('bulan fix',bulan_fix)
-        tanggal_mulai = datetime(year, month, 1)
-        tanggal_akhir = datetime(year, month, calendar.monthrange(year, month)[1])
-        listtotaljual = []
-        listhpptemp = []
-        wip_awal = {}
-        wip_akhir = {}  
-        fg_awal = {}
-        fg_akhir = {}  
+def profit_and_loss_report(request):
+    if len(request.GET) == 0:
+        return render(request, 'report/pnl_report.html')
+    else:
+        month_str = request.GET['bulan']
+        year, month = map(int, month_str.split('-'))
 
-     
+        start_date = datetime(year, month, 1)
+        end_date = datetime(year, month, calendar.monthrange(year, month)[1])
 
+        total_sales_list = []
+        hpp_temp_list = []
+        wip_start = {}
+        wip_end = {}
+        fg_start = {}
+        fg_end = {}
 
-        detailpenjualan = models.detailpenjualan.objects.filter(id_penjualan__tanggal__range = (tanggal_mulai,tanggal_akhir))
-        print("detail penjualan",detailpenjualan)
+        # SALES DETAIL
+        sales_detail = models.SaleDetail.objects.filter(
+            sale_id__date__range=(start_date, end_date)
+        )
 
-        if not detailpenjualan.exists() :
-            total = 0
-            listtotaljual.append(total)
-            # messages.error(request, "Data Penjualan tidak ditemukan!")
-            # return redirect('laporan_labarugi')
-        else :
-            for item in detailpenjualan:
+        if not sales_detail.exists():
+            total_sales_list.append(0)
+        else:
+            for item in sales_detail:
                 try:
-                    # Pendapatan awal
-                    kuantitask = item.kuantitas_komoditas
-                    kuantitasp = item.kuantitas_produk
-                    hargak = item.id_komoditas.harga_jual
-                    hargap = item.id_produk.harga_produk
-                    
-                    # Periksa apakah salah satu nilai adalah None
-                    if kuantitask is None or kuantitasp is None or hargak is None or hargap is None:
-                        continue  # Lanjutkan ke iterasi berikutnya jika ada yang None
-                    
-                    total = kuantitask * hargak + kuantitasp * hargap
-                    listtotaljual.append(total)
-                
+                    commodity_qty = item.commodity_quantity
+                    product_qty = item.product_quantity
+                    commodity_price = item.commodity_id.selling_price if item.commodity_id else None
+                    product_price = item.product_id.product_price if item.product_id else None
+
+                    if commodity_qty is None or product_qty is None or commodity_price is None or product_price is None:
+                        continue
+
+                    total = commodity_qty * commodity_price + product_qty * product_price
+                    total_sales_list.append(total)
+
                 except AttributeError as e:
-                    # Log error atau lakukan tindakan lain jika perlu
-                    print(f"Error processing item {item.iddetail_penjualan}: {e}")
-                    continue  # Lanjutkan ke iterasi berikutnya jika ada error
-        print('list total',listtotaljual)
-        # HPP(produksi)
-        produkobj = models.produk.objects.all()
-        if not produkobj.exists() :
-            messages.error(request,"Data Produk Tidak Ditemukan!")
-        for i in produkobj :  
-            nama_produk = i.nama_produk
+                    print(f"Error processing SaleDetail {item.sale_detail_id}: {e}")
+                    continue
 
-            nama_komoditas = konversi_produk_to_komoditas[nama_produk][0]
-            
-            hargakomoditas = models.komoditas.objects.filter(nama_komoditas=nama_komoditas).filter(id_grade__nama_grade = 'olah').values('harga_beli')
+        # COST OF GOODS SOLD (COGS) from Production
+        products = models.Product.objects.all()
+        for product in products:
+            product_name = product.product_name
 
-            if not hargakomoditas.exists() :
-                hargakomoditas = [{'harga_beli' : 0}]
-            else :
-                pass
-            
+            # commodity conversion (this part depends on your conversion mapping!)
+            if product_name not in product_to_commodity:
+                continue
 
-            konversiproduk = konversi_produk_to_komoditas[nama_produk][1]
-            print(konversiproduk)
+            commodity_name = product_to_commodity[product_name][0]
+            conversion_rate = product_to_commodity[product_name][1]
 
-            filterfgall = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk,status_produk = 'fg')
+            commodity_price_qs = models.Commodity.objects.filter(
+                commodity_name=commodity_name,
+                grade_id__grade_name="processed"
+            ).values("purchase_price")
 
+            if not commodity_price_qs.exists():
+                commodity_price = 0
+            else:
+                commodity_price = commodity_price_qs[0]['purchase_price']
 
-            for a in filterfgall :
-                kuantitasprod = a.kuantitas_produk
-                hasilkonv = math.ceil(kuantitasprod*konversiproduk)
-            
-            filterwipawal = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk).filter(status_produk = 'wip').filter(id_produksi__tanggal = tanggal_mulai)
+            production_details_fg = models.ProductionDetail.objects.filter(
+                product_id__product_name=product_name, product_status="fg"
+            )
 
-            filterwipakhir = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk).filter(status_produk = 'wip').filter(id_produksi__tanggal = tanggal_akhir)
+            conversion_result = 0
+            for detail in production_details_fg:
+                conversion_result += math.ceil(detail.product_quantity * conversion_rate)
 
-            filterfgawal = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk).filter(status_produk = 'fg').filter(id_produksi__tanggal = tanggal_mulai)
+            # WIP & FG balances
+            wip_start_qs = models.ProductionDetail.objects.filter(
+                product_id__product_name=product_name,
+                product_status="wip",
+                production_id__date=start_date
+            )
+            wip_end_qs = models.ProductionDetail.objects.filter(
+                product_id__product_name=product_name,
+                product_status="wip",
+                production_id__date=end_date
+            )
+            fg_start_qs = models.ProductionDetail.objects.filter(
+                product_id__product_name=product_name,
+                product_status="fg",
+                production_id__date=start_date
+            )
+            fg_end_qs = models.ProductionDetail.objects.filter(
+                product_id__product_name=product_name,
+                product_status="fg",
+                production_id__date=end_date
+            )
 
-            filterfgakhir = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk).filter(status_produk = 'fg').filter(id_produksi__tanggal = tanggal_akhir)
+            # Calculate WIP start
+            for d in wip_start_qs:
+                cost = d.product_quantity * d.product_id.product_price
+                wip_start[product_name] = wip_start.get(product_name, 0) + cost
 
+            # Calculate WIP end
+            for d in wip_end_qs:
+                cost = d.product_quantity * d.product_id.product_price
+                wip_end[product_name] = wip_end.get(product_name, 0) + cost
 
-            # wip awal
-            for b in filterwipawal:
-                harga = b.kuantitas_produk * b.id_produk.harga_produk
-                nama_produk = b.id_produk.nama_produk
-                if nama_produk in wip_awal:
-                    wip_awal[nama_produk] += harga
-                else:
-                    wip_awal[nama_produk] = harga
+            # Calculate FG start
+            for d in fg_start_qs:
+                cost = d.product_quantity * d.product_id.product_price
+                fg_start[product_name] = fg_start.get(product_name, 0) + cost
 
-            # wip akhir
-            for b in filterwipakhir:
-                harga = b.kuantitas_produk * b.id_produk.harga_produk
-                nama_produk = b.id_produk.nama_produk
-                if nama_produk in wip_akhir:
-                    wip_akhir[nama_produk] += harga
-                else:
-                    wip_akhir[nama_produk] = harga
-        
-            # fg awal
-            for b in filterfgawal:
-                harga = b.kuantitas_produk * b.id_produk.harga_produk
-                nama_produk = b.id_produk.nama_produk
-                if nama_produk in fg_awal:
-                    fg_awal[nama_produk] += harga
-                else:
-                    fg_awal[nama_produk] = harga
+            # Calculate FG end
+            for d in fg_end_qs:
+                cost = d.product_quantity * d.product_id.product_price
+                fg_end[product_name] = fg_end.get(product_name, 0) + cost
 
-            # fg akhir
-            for b in filterfgakhir:
-                harga = b.kuantitas_produk * b.id_produk.harga_produk
-                nama_produk = b.id_produk.nama_produk
-                if nama_produk in fg_akhir:
-                    fg_akhir[nama_produk] += harga
-                else:
-                    fg_akhir[nama_produk] = harga
+            wip_start_val = wip_start.get(product_name, 0)
+            wip_end_val = wip_end.get(product_name, 0)
 
-        
+            hpp_temp = (conversion_result * commodity_price) + wip_start_val - wip_end_val
+            hpp_temp_list.append(hpp_temp)
 
-            hargawipawal = wip_awal.get(nama_produk, 0)
-            hargawipakhir = wip_akhir.get(nama_produk, 0)
+        # LABOR & OVERHEAD COSTS
+        labor_overhead_costs = models.Cost.objects.filter(
+            Q(cost_type_id__cost_type_name="Labor Cost") |
+            Q(cost_type_id__cost_type_name="Overhead Cost"),
+            date__range=(start_date, end_date)
+        )
+        if not labor_overhead_costs.exists():
+            total_costs = {'total': 0}
+        else:
+            total_costs = labor_overhead_costs.aggregate(total=Sum('cost_amount'))
 
-            print("h kom",hargakomoditas)
-            hpp_temporary = (hasilkonv * hargakomoditas[0]['harga_beli']) + hargawipawal - hargawipakhir
-            listhpptemp.append(hpp_temporary)
+        hpp_final = sum(hpp_temp_list) + total_costs['total']
 
-        tenagakerja_dan_overhead = models.biaya.objects.filter(
-            Q(idjenisbiaya__jenis_biaya='Biaya Tenaga Kerja') | 
-            Q(idjenisbiaya__jenis_biaya='Biaya Overhead'),
-            tanggal__range=(tanggal_mulai, tanggal_akhir))
-        if not tenagakerja_dan_overhead.exists() :
-            total_biaya={'total_biaya' : 0}
-        else  :
-            total_biaya = tenagakerja_dan_overhead.aggregate(total_biaya=Sum('nominal_biaya'))
+        fg_start_total = sum(fg_start.values())
+        fg_end_total = sum(fg_end.values())
 
-        print('total biaya',total_biaya)
-        hpp_final = sum(listhpptemp) + total_biaya['total_biaya']
+        # Raw Commodity Purchases (Partner & Local)
+        commodities = models.Commodity.objects.exclude(grade_id__grade_name="processed")
 
-        
-        listfgawal = []
-        for i in fg_awal.values() :
-            listfgawal.append(i)
+        partner_purchase_list = []
+        local_purchase_list = []
 
-        listfgakhir = []
-        for i in fg_akhir.values() :
-            listfgakhir.append(i)
+        for c in commodities:
+            partner_details = models.PartnerHarvestDetail.objects.filter(commodity_id=c)
+            local_details = models.LocalHarvestDetail.objects.filter(commodity_id=c)
 
-        
-        filterkom = models.komoditas.objects.exclude(id_grade__nama_grade = 'olah')
+            for d in partner_details:
+                cost = d.quantity * d.commodity_id.purchase_price
+                partner_purchase_list.append(cost)
 
-        
-        listmitra = []
-        listlokal = []
-        # Harga Beli Komoditas
-        for item in filterkom :
-            id_kom = item
-            print('id komoditas',id_kom)
+            for d in local_details:
+                cost = d.quantity * d.commodity_id.purchase_price
+                local_purchase_list.append(cost)
 
-            detailmitra = models.detailpanenmitra.objects.filter(id_komoditas=id_kom)
-            detaillokal = models.detailpanenlokal.objects.filter(id_komoditas=id_kom)
+        # Final COGS
+        cogs = hpp_final + sum(partner_purchase_list) + sum(local_purchase_list) + fg_start_total - fg_end_total
 
-            for a in detailmitra :
-                hargakomoditas = a.kuantitas * a.id_komoditas.harga_beli
-                listmitra.append(hargakomoditas)
+        # Gross Profit
+        total_revenue = sum(total_sales_list)
+        gross_profit = total_revenue - cogs
 
-            for b in detaillokal :
-                hargakomoditas = b.kuantitas * b.id_komoditas.harga_beli
-                listlokal.append(hargakomoditas)
+        # Income Tax (0.5%)
+        income_tax = (0.5 / 100) * gross_profit
 
-        # HPP Penjualan
-        hppembelian = hpp_final+sum(listmitra)+sum(listlokal) + sum(listfgawal) - sum(listfgakhir)
+        # Operating Expenses
+        operating_expenses = models.Cost.objects.filter(
+            date__range=(start_date, end_date),
+            cost_type_id__cost_type_name="Operating Expense"
+        )
+        operating_expense_dict = {}
+        for c in operating_expenses:
+            if c.cost_name in operating_expense_dict:
+                operating_expense_dict[c.cost_name] += c.cost_amount
+            else:
+                operating_expense_dict[c.cost_name] = c.cost_amount
 
-        # Pendapatan Kotor
-        totalpendapatanawal = sum(listtotaljual)
-        laba_kotor = totalpendapatanawal- hppembelian
+        total_operating_expenses = sum(operating_expense_dict.values())
 
-        # Pajak Penghasilan
-        pajak_penghasilan = (0.5/100) * laba_kotor
-
-       
-        bbu = models.biaya.objects.filter(tanggal__range=(tanggal_mulai,tanggal_akhir)).filter(idjenisbiaya__jenis_biaya ='Beban Usaha')
-        print('dict',bbu)
-        dictbbu = {}
-        for item in bbu :
-            namabiaya = item.nama_biaya
-            if namabiaya in dictbbu :
-                dictbbu[namabiaya] += item.nominal_biaya
-            else :
-                dictbbu[namabiaya] = item.nominal_biaya
-
-    
-    
-
-        bbufix = 0
-        for item in dictbbu.values():
-            bbufix+=item
-      
-        # Pendapatan bersih
-        pendapatan_bersih = laba_kotor-pajak_penghasilan-bbufix
-
-        if pendapatan_bersih<0 :
-            messages.warning(request,"Pendapatan bersih menjadi mines!")
+        # Net Income
+        net_income = gross_profit - income_tax - total_operating_expenses
+        if net_income < 0:
+            messages.warning(request, "Net income is negative!")
 
         return render(
-            request,'laporan/laporan_labarugi.html',{
-                'bulan':bulan,
-                'month':bulan_fix,
-                'tanggal_mulai':tanggal_mulai,
-                'tanggal_akhir':tanggal_akhir,
-                'pendapatan_awal' :totalpendapatanawal,
-                'hpproduksi' : hpp_final,
-                'hppenjualan' : hppembelian,
-                'laba_kotor' :laba_kotor,
-                'pajak_penghasilan' : pajak_penghasilan,
-                'dictbbu' : dictbbu,
-                'bbufix' : bbufix,
-                'pendapatan_bersih' : pendapatan_bersih
+            request, 'report/pnl_report.html', {
+                'month': month_str,
+                'start_date': start_date,
+                'end_date': end_date,
+                'total_revenue': total_revenue,
+                'production_cogs': hpp_final,
+                'sales_cogs': cogs,
+                'gross_profit': gross_profit,
+                'income_tax': income_tax,
+                'operating_expenses': operating_expense_dict,
+                'total_operating_expenses': total_operating_expenses,
+                'net_income': net_income
             }
         )
 
-def laporanlabarugi_pdf(request,bulan) :
-    year, month = map(int, bulan.split('-'))
-    bulanaja = calendar.month_name[month]
-    bulan_fix = bulan_indo[bulanaja]
-    print('bulan fix',bulan_fix)
-    tanggal_mulai = datetime(year, month, 1)
-    tanggal_akhir = datetime(year, month, calendar.monthrange(year, month)[1])
-    listtotaljual = []
-    listhpptemp = []
-    wip_awal = {}
-    wip_akhir = {}  
-    fg_awal = {}
-    fg_akhir = {}  
+@login_required(login_url="login")
+@role_required(["owner"])
+def profit_and_loss_pdf(request, month):
+    year, month = map(int, month.split('-'))
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month, calendar.monthrange(year, month)[1])
 
-    
+    total_sales_list = []
+    hpp_temp_list = []
+    wip_start = {}
+    wip_end = {}
+    fg_start = {}
+    fg_end = {}
 
+    # SALES DETAIL
+    sales_detail = models.SaleDetail.objects.filter(
+        sale_id__date__range=(start_date, end_date)
+    )
 
-    detailpenjualan = models.detailpenjualan.objects.filter(id_penjualan__tanggal__range = (tanggal_mulai,tanggal_akhir))
-    print("detail penjualan",detailpenjualan)
-
-    if not detailpenjualan.exists() :
-        total = 0
-        listtotaljual.append(total)
-        # messages.error(request, "Data Penjualan tidak ditemukan!")
-        # return redirect('laporan_labarugi')
-    else :
-        for item in detailpenjualan:
+    if not sales_detail.exists():
+        total_sales_list.append(0)
+    else:
+        for item in sales_detail:
             try:
-                # Pendapatan awal
-                kuantitask = item.kuantitas_komoditas
-                kuantitasp = item.kuantitas_produk
-                hargak = item.id_komoditas.harga_jual
-                hargap = item.id_produk.harga_produk
-                
-                # Periksa apakah salah satu nilai adalah None
-                if kuantitask is None or kuantitasp is None or hargak is None or hargap is None:
-                    continue  # Lanjutkan ke iterasi berikutnya jika ada yang None
-                
-                total = kuantitask * hargak + kuantitasp * hargap
-                listtotaljual.append(total)
-            
+                commodity_qty = item.commodity_quantity
+                product_qty = item.product_quantity
+                commodity_price = item.commodity_id.selling_price if item.commodity_id else None
+                product_price = item.product_id.product_price if item.product_id else None
+
+                if commodity_qty is None or product_qty is None or commodity_price is None or product_price is None:
+                    continue
+
+                total = commodity_qty * commodity_price + product_qty * product_price
+                total_sales_list.append(total)
+
             except AttributeError as e:
-                # Log error atau lakukan tindakan lain jika perlu
-                print(f"Error processing item {item.iddetail_penjualan}: {e}")
-                continue  # Lanjutkan ke iterasi berikutnya jika ada error
-    print('list total',listtotaljual)
-    # HPP(produksi)
-    produkobj = models.produk.objects.all()
-    if not produkobj.exists() :
-        messages.error(request,"Data Produk Tidak Ditemukan!")
-    for i in produkobj :  
-        nama_produk = i.nama_produk
+                print(f"Error processing SaleDetail {item.sale_detail_id}: {e}")
+                continue
 
-        nama_komoditas = konversi_produk_to_komoditas[nama_produk][0]
-        
-        hargakomoditas = models.komoditas.objects.filter(nama_komoditas=nama_komoditas).filter(id_grade__nama_grade = 'olah').values('harga_beli')
+    # COST OF GOODS SOLD (Production COGS)
+    products = models.Product.objects.all()
+    for product in products:
+        product_name = product.product_name
 
-        if not hargakomoditas.exists() :
-            hargakomoditas = [{'harga_beli' : 0}]
-        else :
-            pass
-        
+        if product_name not in product_to_commodity:
+            continue
 
-        konversiproduk = konversi_produk_to_komoditas[nama_produk][1]
-        print(konversiproduk)
+        commodity_name = product_to_commodity[product_name][0]
+        conversion_rate = product_to_commodity[product_name][1]
 
-        filterfgall = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk,status_produk = 'fg')
+        commodity_price_qs = models.Commodity.objects.filter(
+            commodity_name=commodity_name,
+            grade_id__grade_name="processed"
+        ).values("purchase_price")
 
+        commodity_price = 0 if not commodity_price_qs.exists() else commodity_price_qs[0]['purchase_price']
 
-        for a in filterfgall :
-            kuantitasprod = a.kuantitas_produk
-            hasilkonv = math.ceil(kuantitasprod*konversiproduk)
-        
-        filterwipawal = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk).filter(status_produk = 'wip').filter(id_produksi__tanggal = tanggal_mulai)
+        production_details_fg = models.ProductionDetail.objects.filter(
+            product_id__product_name=product_name,
+            product_status="fg"
+        )
 
-        filterwipakhir = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk).filter(status_produk = 'wip').filter(id_produksi__tanggal = tanggal_akhir)
+        conversion_result = 0
+        for detail in production_details_fg:
+            conversion_result += math.ceil(detail.product_quantity * conversion_rate)
 
-        filterfgawal = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk).filter(status_produk = 'fg').filter(id_produksi__tanggal = tanggal_mulai)
+        # WIP & FG balances
+        wip_start_qs = models.ProductionDetail.objects.filter(
+            product_id__product_name=product_name,
+            product_status="wip",
+            production_id__date=start_date
+        )
+        wip_end_qs = models.ProductionDetail.objects.filter(
+            product_id__product_name=product_name,
+            product_status="wip",
+            production_id__date=end_date
+        )
+        fg_start_qs = models.ProductionDetail.objects.filter(
+            product_id__product_name=product_name,
+            product_status="fg",
+            production_id__date=start_date
+        )
+        fg_end_qs = models.ProductionDetail.objects.filter(
+            product_id__product_name=product_name,
+            product_status="fg",
+            production_id__date=end_date
+        )
 
-        filterfgakhir = models.detailproduksi.objects.filter(id_produk__nama_produk=nama_produk).filter(status_produk = 'fg').filter(id_produksi__tanggal = tanggal_akhir)
+        # Calculate WIP start
+        for d in wip_start_qs:
+            cost = d.product_quantity * d.product_id.product_price
+            wip_start[product_name] = wip_start.get(product_name, 0) + cost
 
+        # Calculate WIP end
+        for d in wip_end_qs:
+            cost = d.product_quantity * d.product_id.product_price
+            wip_end[product_name] = wip_end.get(product_name, 0) + cost
 
-        # wip awal
-        for b in filterwipawal:
-            harga = b.kuantitas_produk * b.id_produk.harga_produk
-            nama_produk = b.id_produk.nama_produk
-            if nama_produk in wip_awal:
-                wip_awal[nama_produk] += harga
-            else:
-                wip_awal[nama_produk] = harga
+        # Calculate FG start
+        for d in fg_start_qs:
+            cost = d.product_quantity * d.product_id.product_price
+            fg_start[product_name] = fg_start.get(product_name, 0) + cost
 
-        # wip akhir
-        for b in filterwipakhir:
-            harga = b.kuantitas_produk * b.id_produk.harga_produk
-            nama_produk = b.id_produk.nama_produk
-            if nama_produk in wip_akhir:
-                wip_akhir[nama_produk] += harga
-            else:
-                wip_akhir[nama_produk] = harga
-    
-        # fg awal
-        for b in filterfgawal:
-            harga = b.kuantitas_produk * b.id_produk.harga_produk
-            nama_produk = b.id_produk.nama_produk
-            if nama_produk in fg_awal:
-                fg_awal[nama_produk] += harga
-            else:
-                fg_awal[nama_produk] = harga
+        # Calculate FG end
+        for d in fg_end_qs:
+            cost = d.product_quantity * d.product_id.product_price
+            fg_end[product_name] = fg_end.get(product_name, 0) + cost
 
-        # fg akhir
-        for b in filterfgakhir:
-            harga = b.kuantitas_produk * b.id_produk.harga_produk
-            nama_produk = b.id_produk.nama_produk
-            if nama_produk in fg_akhir:
-                fg_akhir[nama_produk] += harga
-            else:
-                fg_akhir[nama_produk] = harga
+        wip_start_val = wip_start.get(product_name, 0)
+        wip_end_val = wip_end.get(product_name, 0)
 
-    
+        hpp_temp = (conversion_result * commodity_price) + wip_start_val - wip_end_val
+        hpp_temp_list.append(hpp_temp)
 
-        hargawipawal = wip_awal.get(nama_produk, 0)
-        hargawipakhir = wip_akhir.get(nama_produk, 0)
+    # LABOR & OVERHEAD COSTS
+    labor_overhead_costs = models.Cost.objects.filter(
+        Q(cost_type_id__cost_type_name="Labor Cost") |
+        Q(cost_type_id__cost_type_name="Overhead Cost"),
+        date__range=(start_date, end_date)
+    )
+    if not labor_overhead_costs.exists():
+        total_costs = {'total': 0}
+    else:
+        total_costs = labor_overhead_costs.aggregate(total=Sum('cost_amount'))
 
-        print("h kom",hargakomoditas)
-        hpp_temporary = (hasilkonv * hargakomoditas[0]['harga_beli']) + hargawipawal - hargawipakhir
-        listhpptemp.append(hpp_temporary)
+    hpp_final = sum(hpp_temp_list) + total_costs['total']
 
-    tenagakerja_dan_overhead = models.biaya.objects.filter(
-        Q(idjenisbiaya__jenis_biaya='Biaya Tenaga Kerja') | 
-        Q(idjenisbiaya__jenis_biaya='Biaya Overhead'),
-        tanggal__range=(tanggal_mulai, tanggal_akhir))
-    if not tenagakerja_dan_overhead.exists() :
-        total_biaya={'total_biaya' : 0}
-    else  :
-        total_biaya = tenagakerja_dan_overhead.aggregate(total_biaya=Sum('nominal_biaya'))
+    fg_start_total = sum(fg_start.values())
+    fg_end_total = sum(fg_end.values())
 
-    print('total biaya',total_biaya)
-    hpp_final = sum(listhpptemp) + total_biaya['total_biaya']
+    # Raw Commodity Purchases (Partner & Local)
+    commodities = models.Commodity.objects.exclude(grade_id__grade_name="processed")
 
-    
-    listfgawal = []
-    for i in fg_awal.values() :
-        listfgawal.append(i)
+    partner_purchase_list = []
+    local_purchase_list = []
 
-    listfgakhir = []
-    for i in fg_akhir.values() :
-        listfgakhir.append(i)
+    for c in commodities:
+        partner_details = models.PartnerHarvestDetail.objects.filter(commodity_id=c)
+        local_details = models.LocalHarvestDetail.objects.filter(commodity_id=c)
 
-    
-    filterkom = models.komoditas.objects.exclude(id_grade__nama_grade = 'olah')
+        for d in partner_details:
+            cost = d.quantity * d.commodity_id.purchase_price
+            partner_purchase_list.append(cost)
 
-    
-    listmitra = []
-    listlokal = []
-    # Harga Beli Komoditas
-    for item in filterkom :
-        id_kom = item
-        print('id komoditas',id_kom)
+        for d in local_details:
+            cost = d.quantity * d.commodity_id.purchase_price
+            local_purchase_list.append(cost)
 
-        detailmitra = models.detailpanenmitra.objects.filter(id_komoditas=id_kom)
-        detaillokal = models.detailpanenlokal.objects.filter(id_komoditas=id_kom)
+    # Final COGS
+    cogs = hpp_final + sum(partner_purchase_list) + sum(local_purchase_list) + fg_start_total - fg_end_total
 
-        for a in detailmitra :
-            hargakomoditas = a.kuantitas * a.id_komoditas.harga_beli
-            listmitra.append(hargakomoditas)
+    # Gross Profit
+    total_revenue = sum(total_sales_list)
+    gross_profit = total_revenue - cogs
 
-        for b in detaillokal :
-            hargakomoditas = b.kuantitas * b.id_komoditas.harga_beli
-            listlokal.append(hargakomoditas)
+    # Income Tax (0.5%)
+    income_tax = (0.5 / 100) * gross_profit
 
-    # HPP Penjualan
-    hppembelian = hpp_final+sum(listmitra)+sum(listlokal) + sum(listfgawal) - sum(listfgakhir)
+    # Operating Expenses
+    operating_expenses = models.Cost.objects.filter(
+        date__range=(start_date, end_date),
+        cost_type_id__cost_type_name="Operating Expense"
+    )
+    operating_expense_dict = {}
+    for c in operating_expenses:
+        if c.cost_name in operating_expense_dict:
+            operating_expense_dict[c.cost_name] += c.cost_amount
+        else:
+            operating_expense_dict[c.cost_name] = c.cost_amount
 
-    # Pendapatan Kotor
-    totalpendapatanawal = sum(listtotaljual)
-    laba_kotor = totalpendapatanawal- hppembelian
+    total_operating_expenses = sum(operating_expense_dict.values())
 
-    # Pajak Penghasilan
-    pajak_penghasilan = (0.5/100) * laba_kotor
-
-    
-    bbu = models.biaya.objects.filter(tanggal__range=(tanggal_mulai,tanggal_akhir)).filter(idjenisbiaya__jenis_biaya ='Beban Usaha')
-    print('dict',bbu)
-    dictbbu = {}
-    for item in bbu :
-        namabiaya = item.nama_biaya
-        if namabiaya in dictbbu :
-            dictbbu[namabiaya] += item.nominal_biaya
-        else :
-            dictbbu[namabiaya] = item.nominal_biaya
-
-
-
-
-    bbufix = 0
-    for item in dictbbu.values():
-        bbufix+=item
-    
-    # Pendapatan bersih
-    pendapatan_bersih = laba_kotor-pajak_penghasilan-bbufix
+    # Net Income
+    net_income = gross_profit - income_tax - total_operating_expenses
 
     response = HttpResponse(content_type='application/pdf;')
-    response['Content-Disposition'] = 'inline; filename=laporan laba rugi.pdf'
+    response['Content-Disposition'] = 'inline; filename=profit_and_loss.pdf'
     response['Content-Transfer-Encoding'] = 'binary'
     html_string = render_to_string(
-        'laporan/laporanlabarugipdf.html',{
-            'month':bulan_fix,
-            'pendapatan_awal' :totalpendapatanawal,
-            'hpproduksi' : hpp_final,
-            'hppenjualan' : hppembelian,
-            'laba_kotor' :laba_kotor,
-            'pajak_penghasilan' : pajak_penghasilan,
-            'dictbbu' : dictbbu,
-            'bbufix' : bbufix,
-            'pendapatan_bersih' : pendapatan_bersih
-            })
-    
+        'report/pnl_report_pdf.html', {
+            'month': month,
+            'total_revenue': total_revenue,
+            'production_cogs': hpp_final,
+            'sales_cogs': cogs,
+            'gross_profit': gross_profit,
+            'income_tax': income_tax,
+            'operating_expenses': operating_expense_dict,
+            'total_operating_expenses': total_operating_expenses,
+            'net_income': net_income
+        })
+
     html = HTML(string=html_string)
     result = html.write_pdf()
 
@@ -2631,126 +2385,127 @@ def laporanlabarugi_pdf(request,bulan) :
         output.flush()
         output.seek(0)
         response.write(output.read())
-    
-    render(request, 'laporan/laporanlabarugipdf.html')
-    
+
     return response
 
 @login_required(login_url="login")
 @role_required(["owner"])
-def rekap_panen_bulanan(request):
-    hari_ini = now().date()
-    bulan_ini_awal = hari_ini.replace(day=1)
+def monthly_harvest_report(request):
+    today = now().date()
+    start_of_month = today.replace(day=1)
 
-    if hari_ini.month == 12:
-        bulan_depan_awal = hari_ini.replace(year=hari_ini.year + 1, month=1, day=1)
+    if today.month == 12:
+        start_of_next_month = today.replace(year=today.year + 1, month=1, day=1)
     else:
-        bulan_depan_awal = hari_ini.replace(month=hari_ini.month + 1, day=1)
+        start_of_next_month = today.replace(month=today.month + 1, day=1)
 
-    semua_mitra = models.mitra.objects.all()
+    all_partners = models.Partner.objects.all()
 
-    for mitra in semua_mitra:
-        panen_bulanan = models.panenmitra.objects.filter(
-            id_mitra=mitra,
-            tanggal_panen__gte=bulan_ini_awal,
-            tanggal_panen__lt=bulan_depan_awal
+    for partner in all_partners:
+        monthly_harvests = models.PartnerHarvest.objects.filter(
+            partner=partner,
+            harvest_date__gte=start_of_month,
+            harvest_date__lt=start_of_next_month
         )
 
         detail_data = []
-        total_kuantitas_semua = 0
+        total_quantity = 0
 
-        for panen in panen_bulanan:
-            detail_items = models.detailpanenmitra.objects.filter(idpanen_mitra=panen).select_related("id_komoditas")
-            for detail in detail_items:
+        for harvest in monthly_harvests:
+            details = models.PartnerHarvestDetail.objects.filter(partner_harvest=harvest).select_related("commodity")
+            for detail in details:
                 detail_data.append({
-                    'tanggal_panen': panen.tanggal_panen,
-                    'nama_komoditas': detail.id_komoditas.nama_komoditas,
-                    'kuantitas': detail.kuantitas,
+                    'harvest_date': harvest.harvest_date,
+                    'commodity_name': detail.commodity_id.commodity_name,
+                    'quantity': detail.quantity,
                 })
-                total_kuantitas_semua += detail.kuantitas
+                total_quantity += detail.quantity
 
-        if total_kuantitas_semua < mitra.minimal_kuantitas:
-            subject = f"Laporan Panen Bulanan - {mitra.nama_mitra}"
-            html_message = render_to_string("email_laporan.html", {
-                'nama_mitra': mitra.nama_mitra,
-                'detail': detail_data,
-                'total': total_kuantitas_semua,
-                'kuantitas_minimal': mitra.minimal_kuantitas,
+        if total_quantity < partner.min_quantity:
+            subject = f"Monthly Harvest Report - {partner.partner_name}"
+            html_message = render_to_string("email_report.html", {
+                'partner_name': partner.partner_name,
+                'details': detail_data,
+                'total': total_quantity,
+                'minimum_quantity': partner.min_quantity,
             })
 
-            email = EmailMessage(subject, html_message, settings.EMAIL_HOST_USER, [mitra.email])
+            email = EmailMessage(subject, html_message, settings.EMAIL_HOST_USER, [partner.email])
             email.content_subtype = "html"
             email.send()
 
-    return render(request, '404.html')  
+    return render(request, '404.html')
 
-def total_komoditas(request):
+
+@login_required(login_url="login")
+def total_commodities(request):
     if request.method == "GET":
-        panen_mitra = models.panenmitra.objects.all()
-        panen_lokal = models.panenlokal.objects.all()
+        partner_harvests = models.PartnerHarvest.objects.all()
+        local_harvests = models.LocalHarvest.objects.all()
 
-        hasil = {}
-        komoditas_set = set()
+        results = {}
+        commodity_set = set()
         batch_set = set()
-        tanggalpanen_set = set()
-        tanggalkadaluarsa_set = set()
+        harvest_date_set = set()
+        expiry_date_set = set()
 
-        def proses_panen(panen_list, dari_mitra=True):
-            for panen in panen_list:
+        def process_harvest(harvest_list, is_partner=True):
+            for harvest in harvest_list:
                 details = (
-                    models.detailpanenmitra.objects.filter(idpanen_mitra=panen)
-                    if dari_mitra else
-                    models.detailpanenlokal.objects.filter(idpanen_lokal=panen)
+                    models.PartnerHarvestDetail.objects.filter(partner_harvest_id=harvest)
+                    if is_partner else
+                    models.LocalHarvestDetail.objects.filter(local_harvest_id=harvest)
                 )
 
                 for detail in details:
-                    komoditas_obj = detail.id_komoditas 
-                    komoditas_str = str(komoditas_obj)   
+                    commodity_obj = detail.commodity_id
+                    commodity_str = str(commodity_obj)
                     batch = detail.batch
-                    tanggalpanen = (
-                        detail.idpanen_mitra.tanggal_panen
-                        if dari_mitra else
-                        detail.idpanen_lokal.tanggal_panen
+                    harvest_date = (
+                        detail.partner_harvest_id.harvest_date
+                        if is_partner else
+                        detail.local_harvest_id.harvest_date
                     )
-                    tanggalkadaluarsa = detail.tanggal_kadaluwarsa
-                    kuantitas = detail.kuantitas
+                    expiry_date = detail.expiry_date
+                    quantity = detail.quantity
 
-                    key = (komoditas_str, batch, tanggalpanen, tanggalkadaluarsa)
+                    key = (commodity_str, batch, harvest_date, expiry_date)
 
-                    if key not in hasil:
-                        data_qr = generate_qr_data(komoditas_str, tanggalkadaluarsa, kuantitas)
+                    if key not in results:
+                        data_qr = generate_qr_data(commodity_str, expiry_date, quantity)
                         qr_img = generate_qr_image(data_qr)
-                        hasil[key] = {"total": kuantitas, "qr": qr_img}
+                        results[key] = {"total": quantity, "qr": qr_img}
                     else:
-                        hasil[key]["total"] += kuantitas
+                        results[key]["total"] += quantity
 
-                    komoditas_set.add(komoditas_str)
+                    commodity_set.add(commodity_str)
                     batch_set.add(batch)
-                    tanggalpanen_set.add(tanggalpanen)
-                    tanggalkadaluarsa_set.add(tanggalkadaluarsa)
+                    harvest_date_set.add(harvest_date)
+                    expiry_date_set.add(expiry_date)
 
-        proses_panen(panen_mitra, dari_mitra=True)
-        proses_panen(panen_lokal, dari_mitra=False)
+        process_harvest(partner_harvests, is_partner=True)
+        process_harvest(local_harvests, is_partner=False)
 
-        result = [
+        result_list = [
             {
-                "komoditas": komoditas,
+                "commodity": commodity,
                 "batch": batch,
-                "tanggal_panen": tanggalpanen.strftime("%Y-%m-%d"),
-                "tanggal_kadaluwarsa": tanggalkadaluarsa.strftime("%Y-%m-%d"),
-                "total_kuantitas": data["total"],
+                "harvest_date": harvest_date.strftime("%Y-%m-%d"),
+                "expiry_date": expiry_date.strftime("%Y-%m-%d"),
+                "total_quantity": data["total"],
                 "qr": data["qr"]
             }
-            for (komoditas, batch, tanggalpanen, tanggalkadaluarsa), data in hasil.items()
+            for (commodity, batch, harvest_date, expiry_date), data in results.items()
         ]
 
-        return render(request, "total_komoditas.html", {
-            "list_total": result,
-            "komoditas_list": sorted(komoditas_set),
+        return render(request, "total_commodities.html", {
+            "total_list": result_list,
+            "commodity_list": sorted(commodity_set),
             "batch_list": sorted(batch_set),
-            "tanggal_panen_list": sorted(tanggalpanen_set),
-            "tanggal_list": sorted(tanggalkadaluarsa_set)
+            "harvest_date_list": sorted(harvest_date_set),
+            "expiry_date_list": sorted(expiry_date_set)
         })
+
 
 def generate_qr_image(data):
     qr = qrcode.make(data)
@@ -2759,22 +2514,37 @@ def generate_qr_image(data):
     buffer.seek(0)
     return buffer
 
-def generate_qr_data(komoditas_str, kadaluarsa, kuantitas):
-    return f"{komoditas_str}|{kadaluarsa}|{kuantitas}"
+
+def generate_qr_data(commodity_str, expiry_date, quantity):
+    return f"{commodity_str}|{expiry_date}|{quantity}"
 
 
-def qr_already_generated(id_komoditas, kadaluarsa):
+def qr_already_generated(commodity_id, expiry_date):
     return (
-        models.detailpanenlokal.objects.filter(
-            id_komoditas_id=id_komoditas,
-            tanggal_kadaluwarsa=kadaluarsa
+        models.LocalHarvestDetail.objects.filter(
+            commodity_id=commodity_id,
+            expiry_date=expiry_date
         ).exists()
-        or models.detailpanenmitra.objects.filter(
-            id_komoditas_id=id_komoditas,
-            tanggal_kadaluwarsa=kadaluarsa
+        or models.PartnerHarvestDetail.objects.filter(
+            commodity_id=commodity_id,
+            expiry_date=expiry_date
         ).exists()
     )
 
-def log_aktivitas(request):
-    logs = models.ActivityLog.objects.all().order_by('-timestamp')  # Urutkan terbaru dulu
+
+@login_required(login_url="login")
+def activity_logs(request):
+    logs = models.ActivityLog.objects.all().order_by('-timestamp') 
     return render(request, 'log/activity_log.html', {'logs': logs})
+
+@login_required
+@role_required(['owner'])  
+def delete_log(request, id):
+    try:
+        log = models.ActivityLog.objects.get(id=id)
+        log.delete()
+        messages.success(request, "Log berhasil dihapus.")
+    except models.ActivityLog.DoesNotExist:
+        messages.error(request, "Log tidak ditemukan.")
+    return redirect('activity_logs') 
+

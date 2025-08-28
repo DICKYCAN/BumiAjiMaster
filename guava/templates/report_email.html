@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: sans-serif;
+        }
+        th, td {
+            padding: 8px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <h2>Monthly Harvest Report</h2>
+    <p>Hello, {{ partner_name }}!</p>
+    <p>Total Harvest Quantity this year: <strong>{{ total }}</strong> kg</p>
+    <p>Minimum Quantity: <strong>{{ minimum_quantity }}</strong> kg</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Harvest Date</th>
+                <th>Commodity Name</th>
+                <th>Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in detail %}
+            <tr>
+                <td>{{ item.harvest_date }}</td>
+                <td>{{ item.commodity_name }}</td>
+                <td>{{ item.quantity }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>

@@ -1,0 +1,75 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">Data Partner</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item "><a href="{% url 'read_partner' %}">Data partner</a></li>
+          {% if is_owner or is_admin %}
+          <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'create_partner' %}">Create partner</a></li>
+          {% endif %}
+        </ol>
+      </nav>
+</div>
+<div class="row">
+        <div class="col-lg-12 grid-margin stretch-card">
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" id="datapartner">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>No</th>
+                                    <th>partner name</th>
+                                    <th>Address</th> 
+                                    <th>Contact</th>
+                                    <th>Start Date Partner</th>
+                                    <th>Duration Contract</th>
+                                    <th>Land Area</th>
+                                    <th>status partner</th>
+                                    {% if is_owner or is_admin %}
+                                    <th class="text-center">Action</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                    
+                            <tbody class="table-dark" >
+                                {% for item in all_partners %}
+                                <tr>
+                                    <td>{{ forloop.counter }}</td>
+                                    <td>{{ item.partner_name }}</td>
+                                    <td>{{ item.partner_address }}</td>
+                                    <td>{{ item.partner_phone }}</td>
+                                    <td>{{ item.start_date }}</td>
+                                    <td>{{ item.contract_duration }}</td>
+                                    <td>{{ item.land_area }}</td>
+                                    <td>
+                                        {% if item.partner_status %}
+                                        Active
+                                        {% else %}
+                                        Not Active
+                                        {% endif %}
+                                    </td>
+                                    {% if is_owner or is_admin %}
+                                    <td>           
+                                        <a href="{% url 'update_partner' item.partner_id %}"><button class="btn btn-inverse-warning btn-icon-text btn-sm mr-2"><i class="mdi mdi-reload btn-icon-prepend align-middle"></i>Update</button></a>
+                                        {% if is_owner %}
+                                        <a href="{% url 'delete_partner' item.partner_id %}"><button class="btn btn-inverse-danger btn-icon-text btn-sm"><i class="mdi mdi-close btn-icon-prepend align-middle"></i>Delete</button></a>
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                    {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+</div>
+    
+{% endblock %}

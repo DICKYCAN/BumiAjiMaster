@@ -46,10 +46,10 @@
                     {% csrf_token %}
                     <div class="form-row">
                         <div class="form-group col-md-4">
-                            <label class="col-form-label">Produk / Komoditas</label>
+                            <label class="col-form-label">Product / Commodity</label>
                             <select class="form-control input-short" name="grafik" id="">
-                                <option value="Produk">Produk</option>
-                                <option value="Komoditas">Komoditas</option>
+                                <option value="Product">Product</option>
+                                <option value="Commodity">Commodity</option>
                             </select>
                         </div>
                         <div class="form-group col-md-4 align-self-end">
@@ -69,7 +69,7 @@
             </div>
             <div class="row justify-content-center">
                 <div class="col text-center">
-                  <h1 class="">Stok Komoditas</h1>
+                  <h1 class="">Commodity Stock</h1>
                 </div>
               </div>
             <div class="row">
@@ -93,11 +93,11 @@
     var myChart = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels: [{% for i in listpasar %} '{{i}}', {% endfor %}]
+        labels: [{% for i in list_markets %} '{{i}}', {% endfor %}]
             ,
         datasets: [{
-          label: 'Banyaknya Penjualan',
-          data: [{% for i in listkuantitas %} '{{i}}', {% endfor %}],
+          label: 'Total Sales',
+          data: [{% for i in list_market_quantities %} '{{i}}', {% endfor %}],
           backgroundColor: [
                     'rgba(255, 99, 132, 0.2)',
                     'rgba(54, 162, 235, 0.2)',
@@ -131,11 +131,11 @@
     var myChart = new Chart(ctx, {
       type: 'pie',
       data: {
-        labels: [{% for i in listkomoditas %} '{{i}}', {% endfor %}]
+        labels: [{% for i in list_commodities %} '{{i}}', {% endfor %}]
             ,
         datasets: [{
           label: 'Kuantitas',
-          data: [{% for i in listkuantitaskomoditas %} '{{i}}', {% endfor %}],
+          data: [{% for i in list_market_quantities %} '{{i}}', {% endfor %}],
           backgroundColor: [
                     'rgba(255, 99, 132, 0.2)',
                     'rgba(54, 162, 235, 0.2)',

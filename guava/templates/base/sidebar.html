@@ -32,28 +32,28 @@
           <span class="menu-icon">
             <i class="mdi mdi-account-multiple-outline"></i>
           </span>
-          <span class="menu-title">Mitra</span>
+          <span class="menu-title">Partner</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic">
           <ul class="nav flex-column sub-menu">
   
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'readmitra' %}">
+                <a class="nav-link" href="{% url 'read_partner' %}">
                     <span>
                         <i class="mdi mdi-account-outline mr-2"></i>
                     </span>
-                    <span>Data Mitra</span>
+                    <span>Data partner</span>
                 </a>
             </li>
        
             {% if is_owner or is_admin %}
             <li class="nav-item">
-              <a class="nav-link" href="{% url 'create_mitra' %}">
+              <a class="nav-link" href="{% url 'create_partner' %}">
                 <span>
                   <i class="mdi mdi-account-multiple-plus mr-2"></i>
                 </span>
-                <span>Tambah Mitra</span>
+                <span>Add Partner</span>
               </a>
             </li>
             {% endif %}
@@ -68,26 +68,26 @@
           <span class="menu-icon">
             <i class="mdi mdi-leaf"></i>
           </span>
-          <span class="menu-title">Komoditas</span>
+          <span class="menu-title">Commodity</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic2">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'read_komoditas' %}">
+                <a class="nav-link" href="{% url 'read_commodity' %}">
                     <span>
                         <i class= "mdi mdi-format-list-bulleted mr-2"></i>
                     </span>
-                    <span>Data Komoditas</span>
+                    <span>Data Commodity</span>
                 </a>
             </li>
             {% if is_owner %}
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'create_komoditas' %}">
+                 <a class="nav-link" href="{% url 'create_commodity' %}">
                     <span>
                         <i class="mdi mdi-plus mr-2"></i>
                     </span>
-                    <span>Tambah Komoditas</span>
+                    <span>Add Commodity</span>
                 </a>
             </li>
             {% endif %}
@@ -121,7 +121,7 @@
                     <span>
                         <i class="mdi mdi-plus mr-2"></i>
                     </span>
-                    <span>Tambah Grade</span>
+                    <span>Add Grade</span>
                 </a>
             </li>
             {% endif %}
@@ -136,26 +136,26 @@
           <span class="menu-icon">
             <i class="mdi mdi-food"></i>
           </span>
-          <span class="menu-title">Produk</span>
+          <span class="menu-title">Product</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic3">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'read_produk' %}">
+                <a class="nav-link" href="{% url 'read_product' %}">
                     <span>
                         <i class="mdi mdi-format-list-bulleted mr-2"></i>
                     </span>
-                    <span>Data Produk</span>
+                    <span>Data Product</span>
                 </a>
             </li>
             {% if is_owner %}
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'create_produk' %}">
+                 <a class="nav-link" href="{% url 'create_product' %}">
                     <span>
                         <i class="mdi mdi-plus  mr-2"></i>
                     </span>
-                    <span>Tambah Produk</span>
+                    <span>Add Product</span>
                 </a>
             </li>
             {% endif %}
@@ -170,26 +170,26 @@
           <span class="menu-icon">
             <i class="mdi mdi-cash-multiple"></i>
           </span>
-          <span class="menu-title">Jenis Biaya</span>
+          <span class="menu-title">Cost Type</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic4">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'read_jenisbiaya' %}">
+                <a class="nav-link" href="{% url 'read_cost_type' %}">
                     <span>
                         <i class="mdi mdi-cards-outline mr-2"></i>
                     </span>
-                    <span>Data Jenis Biaya </span>
+                    <span>Data Cost Type </span>
                 </a>
             </li>
             {% if is_owner %}
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'create_jenisbiaya' %}">
+                 <a class="nav-link" href="{% url 'create_cost_type' %}">
                     <span>
                         <i class="mdi mdi-plus mr-2"></i>
                     </span>
-                    <span>Tambah Jenis Biaya </span>
+                    <span>Add Cost Type </span>
                 </a>
             </li>
             {% endif %}
@@ -204,26 +204,26 @@
           <span class="menu-icon">
             <i class="mdi mdi-store"></i>
           </span>
-          <span class="menu-title">Pasar</span>
+          <span class="menu-title">Market</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic5">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'read_pasar' %}">
+                <a class="nav-link" href="{% url 'read_market' %}">
                     <span>
                         <i class="mdi mdi-format-list-bulleted mr-2"></i>
                     </span>
-                    <span>Data Pasar</span>
+                    <span>Data Market</span>
                 </a>
             </li>
             {% if is_owner %}
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'create_pasar' %}">
+                 <a class="nav-link" href="{% url 'create_market' %}">
                     <span>
                         <i class="mdi mdi-plus  mr-2"></i>
                     </span>
-                    <span>Tambah Pasar</span>
+                    <span>Add Market</span>
                 </a>
             </li>
             {% endif %}
@@ -233,7 +233,7 @@
       {% endif %}
       
       <li class="nav-item nav-category">
-        <span class="nav-link">Data Transaksi</span>
+        <span class="nav-link">Data Trasaction</span>
       </li>
       {% if is_owner or is_admin or is_inspeksi %}
       <li class="nav-item menu-items">
@@ -241,33 +241,33 @@
           <span class="menu-icon">
             <i class="mdi mdi-seed"></i>
           </span>
-          <span class="menu-title">Panen</span>
+          <span class="menu-title">Harvest</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic6">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'read_panenmitra' %}">
+                <a class="nav-link" href="{% url 'read_partner_harvest' %}">
                     <span>
                         <i class="mdi mdi-account-multiple mr-2"></i>
                     </span>
-                    <span>Panen Mitra</span>
+                    <span>Harvest Partner</span>
                 </a>
             </li>
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'read_panenlokal' %}">
+                 <a class="nav-link" href="{% url 'read_local_harvest' %}">
                     <span>
                         <i class="mdi mdi-human-greeting mr-2"></i>
                     </span>
-                    <span>Panen Lokal</span>
+                    <span>Local Harvest </span>
                 </a>
             </li>
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'total_komoditas' %}">
+                 <a class="nav-link" href="{% url 'total_commodities' %}">
                     <span>
                         <i class="mdi mdi-human-greeting mr-2"></i>
                     </span>
-                    <span>total panen</span>
+                    <span>Total Harvest</span>
                 </a>
             </li>
           </ul>
@@ -275,31 +275,31 @@
       </li>
       {% endif %}
 
-      {% if is_owner or is_admin or is_produksi %}
+      {% if is_owner or is_admin or is_production %}
       <li class="nav-item menu-items">
         <a class="nav-link" data-toggle="collapse" href="#ui-basic7" aria-expanded="false" aria-controls="ui-basic7">
           <span class="menu-icon">
             <i class="mdi mdi-worker"></i>
           </span>
-          <span class="menu-title">Produksi</span>
+          <span class="menu-title">Production</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic7">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'read_produksi' %}">
+                <a class="nav-link" href="{% url 'read_production' %}">
                     <span>
                         <i class="mdi mdi-factory mr-2"></i>
                     </span>
-                    <span>Data Produksi</span>
+                    <span>Data Production</span>
                 </a>
             </li>
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'create_produksi' %}">
+                 <a class="nav-link" href="{% url 'create_production' %}">
                     <span>
                         <i class="mdi mdi-plus mr-2"></i>
                     </span>
-                    <span>Tambah Produksi</span>
+                    <span>Add Production</span>
                 </a>
             </li>
           </ul>
@@ -313,25 +313,25 @@
           <span class="menu-icon">
             <i class="mdi mdi-basket-fill"></i>
           </span>
-          <span class="menu-title">Penjualan</span>
+          <span class="menu-title">Sales</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic8">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'read_penjualan' %}">
+                <a class="nav-link" href="{% url 'read_sale' %}">
                     <span>
                         <i class="mdi mdi-shopping mr-2"></i>
                     </span>
-                    <span>Data Penjualan</span>
+                    <span>Data Sales</span>
                 </a>
             </li>
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'create_penjualan' %}">
+                 <a class="nav-link" href="{% url 'create_sale' %}">
                     <span>
                         <i class="mdi mdi-cart-plus mr-2"></i>
                     </span>
-                    <span>Tambah Penjualan</span>
+                    <span>Add Sales</span>
                 </a>
             </li>
           </ul>
@@ -339,31 +339,31 @@
       </li>
       {% endif %}
 
-      {% if is_owner or is_admin or is_produksi %}
+      {% if is_owner or is_admin or is_production %}
       <li class="nav-item menu-items">
         <a class="nav-link" data-toggle="collapse" href="#ui-basic9" aria-expanded="false" aria-controls="ui-basic9">
           <span class="menu-icon">
             <i class="mdi mdi-cash-multiple"></i>
           </span>
-          <span class="menu-title">Biaya Lain</span>
+          <span class="menu-title">Other Cost</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic9">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'read_detailbiaya' %}">
+                <a class="nav-link" href="{% url 'read_cost_detail' %}">
                     <span>
                         <i class="mdi mdi-cards-outline mr-2"></i>
                     </span>
-                    <span>Data Biaya Lain</span>
+                    <span>Data Other Cost</span>
                 </a>
             </li>
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'create_detailbiaya' %}">
+                 <a class="nav-link" href="{% url 'create_cost_detail' %}">
                     <span>
                         <i class="mdi mdi-plus mr-2"></i>
                     </span>
-                    <span>Tambah Biaya Lain</span>
+                    <span>Add Other Cost</span>
                 </a>
             </li>
           </ul>
@@ -377,33 +377,33 @@
           <span class="menu-icon">
             <i class="mdi mdi-file-document"></i>
           </span>
-          <span class="menu-title">Laporan</span>
+          <span class="menu-title">Report</span>
           <i class="menu-arrow"></i>
         </a>
         <div class="collapse" id="ui-basic10">
           <ul class="nav flex-column sub-menu">
             <li class="nav-item">
-                <a class="nav-link" href="{% url 'laporanpanen' %}">
+                <a class="nav-link" href="{% url 'harvest_report' %}">
                     <span>
                         <i class="mdi mdi-seed mr-2"></i>
                     </span>
-                    <span>Laporan Panen</span>
+                    <span>Harvest Report</span>
                 </a>
             </li>
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'laporan_penjualan' %}">
+                 <a class="nav-link" href="{% url 'sales_report' %}">
                     <span>
                         <i class="mdi mdi-basket mr-2"></i>
                     </span>
-                    <span>Laporan Penjualan</span>
+                    <span>Sales Report </span>
                 </a>
             </li>
             <li class="nav-item">
-                 <a class="nav-link" href="{% url 'laporan_labarugi' %}">
+                 <a class="nav-link" href="{% url 'pnl_report' %}">
                     <span>
                         <i class="mdi mdi-file-check mr-2"></i>
                     </span>
-                    <span>Laporan Laba Rugi</span>
+                    <span>PNL Report</span>
                 </a>
             </li>
           </ul>
@@ -417,17 +417,17 @@
       <span class="menu-icon">
         <i class="mdi mdi-clock"></i>
       </span>
-      <span class="menu-title">Log aktivitas</span>
+      <span class="menu-title">Activity Log</span>
       <i class="menu-arrow"></i>
     </a>
     <div class="collapse" id="ui-basic12">
       <ul class="nav flex-column sub-menu">
         <li class="nav-item">
-            <a class="nav-link" href="{% url 'log_aktivitas' %}">
+            <a class="nav-link" href="{% url 'activity_logs' %}">
                 <span>
                     <i class="mdi mdi-account-multiple mr-2"></i>
                 </span>
-                <span>Log Aktivitas</span>
+                <span>Activity Log</span>
             </a>
         </li>
       </ul>

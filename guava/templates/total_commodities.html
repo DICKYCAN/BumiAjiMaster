@@ -1,0 +1,131 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<head>
+    <meta charset="UTF-8">
+    <title>Total Commodity Stock</title>
+    <style>
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+        select { margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>Commodity Log</h1>
+
+    <div>
+        <label for="filter-commodity">Filter commodity:</label>
+        <select id="filter-commodity">
+            <option value="">All<option>
+            {% for commodity in commodity_list %}
+                <option value="{{ commodity }}">{{ commodity }}</option>
+            {% endfor %}
+        </select>
+
+        <label for="filter-grade"></label>
+        <div id="filter-grade">
+        </div>
+
+        <label for="filter-tanggal"></label>
+        <div id="filter-tanggal">
+        </div>
+    </div>
+
+    <div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="datatotal">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Commodity</th>
+                                <th>harvest Date</th>
+                                <th>Batch</th>
+                                <th>Expiry Date</th>
+                                <th>Total Quantity</th>
+                                <th>Data QR</th>
+                            </tr>
+                        </thead>
+                        <tbody class="table-dark">
+                            {% for item in total_list %}
+                            <tr data-commodity="{{ item.commodity }}"
+                                data-grade="{{ item.grade }}"
+                                data-tanggal="{{ item.expiry_date }}">
+                                <td>{{ item.commodity }}</td>
+                                <td>{{ item.harvest_date }}</td>
+                                <td>{{ item.batch }}</td>
+                                <td>{{ item.expiry_date }}</td>
+                                <td>{{ item.total_quantity }}</td>
+                                <td>
+                                    <button class="btn btn-primary btn-download-qr"
+                                        data-commodity="{{ item.commodity }}"
+                                        data-kadaluarsa="{{ item.expiry_date }}"
+                                        data-kuantitas="{{ item.total_quantity }}">
+                                        Download QR
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const filtercommodity = document.getElementById("filter-commodity");
+        const filterGrade = document.getElementById("filter-grade");
+        const filterTanggal = document.getElementById("filter-tanggal");
+        const rows = document.querySelectorAll("#datatotal tbody tr");
+
+        function applyFilter() {
+            const commodity = filtercommodity.value;
+            const grade = filterGrade.value;
+            const tanggal = filterTanggal.value;
+
+            rows.forEach(row => {
+                const matchcommodity = !commodity || row.dataset.commodity === commodity;
+                const matchGrade = !grade || row.dataset.grade === grade;
+                const matchTanggal = !tanggal || row.dataset.tanggal === tanggal;
+
+                row.style.display = (matchcommodity && matchGrade && matchTanggal) ? "" : "none";
+            });
+        }
+
+        filtercommodity.addEventListener("change", applyFilter);
+        filterGrade.addEventListener("change", applyFilter);
+        filterTanggal.addEventListener("change", applyFilter);
+    </script>
+    <script>
+        document.querySelectorAll(".btn-download-qr").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const commodity = btn.dataset.commodity;
+                const kadaluarsa = btn.dataset.kadaluarsa;
+                const kuantitas = btn.dataset.kuantitas;
+
+                const qrData = `${commodity}|${kadaluarsa}|${kuantitas}`;
+
+                // Generate QR sebagai canvas
+                QRCode.toCanvas(qrData, { width: 200 }, function (err, canvas) {
+                    if (err) {
+                        console.error(err);
+                        return;
+                    }
+                    // Convert canvas ke data URL
+                    const link = document.createElement("a");
+                    link.href = canvas.toDataURL("image/png");
+                    link.download = `QR_${commodity}_${kadaluarsa}.png`;
+                    link.click();
+                });
+            });
+        });
+        </script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+
+
+</body>
+</html>
+{% endblock %}

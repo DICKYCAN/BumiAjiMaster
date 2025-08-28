@@ -17,12 +17,12 @@
         <div class="card">
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered" id="datagrade">
+                    <table class="table table-bordered" id="gradedata">
                         <thead class="table-light">
                             <tr class="text-center">
                                 <th >No</th>
-                                <th>Nama Grade</th>
-                                <th>Deskripsi</th>
+                                <th>Grade Name</th>
+                                <th>Description</th>
                                 {% if is_owner %}
                                 <th>Action</th>
                                 {% endif %}
@@ -33,12 +33,12 @@
                             <tr class="text-center">
                                 <td>{{forloop.counter}}</td>
                                 <td>{{item}}</td>
-                                <td>{{item.deskripsi_grade}}</td>
+                                <td>{{item.grade_description}}</td>
                                 {% if is_owner %}
                                 <td>
-                                    <a href="{% url 'update_grade' item.id_grade %}"><button class="btn btn-inverse-warning"><i class="mdi mdi-reload btn-icon-prepend align-middle"></i>Update</button></a>
+                                    <a href="{% url 'update_grade' item.grade_id %}"><button class="btn btn-inverse-warning"><i class="mdi mdi-reload btn-icon-prepend align-middle"></i>Update</button></a>
                 
-                                    <a href="{% url 'delete_grade' item.id_grade %}"><button class="btn btn-inverse-danger"><i class="mdi mdi-close btn-icon-prepend align-middle"></i>Delete</button></a>
+                                    <a href="{% url 'delete_grade' item.grade_id %}"><button class="btn btn-inverse-danger"><i class="mdi mdi-close btn-icon-prepend align-middle"></i>Delete</button></a>
                                 </td>
                                 {% endif %}
                             </tr>

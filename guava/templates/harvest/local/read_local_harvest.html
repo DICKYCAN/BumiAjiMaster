@@ -1,0 +1,67 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Local Harvest Data</h1>
+    <nav aria-label="breadcrumb">
+        <div class="mr2">
+            <ol class="breadcrumb">
+              <li class="breadcrumb-item "><a href="{% url 'read_local_harvest' %}">Local Harvest Data</a></li>
+              <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'read_local_weight' %}">Accumulation</a></li>
+              {% if is_owner or is_admin %}
+              <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'read_local_harvest' %}">Create Local Harvest</a></li>
+              {% endif %}
+            </ol>
+
+        </div>
+      </nav>
+</div>
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+     
+                    <table class="table table-bordered" id="localharvestdata">
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>Harvest Date</th> 
+                                <th>Commodity</th>
+                                <th>Batch</th>
+                                <th>Expiry Date</th>
+                                <th>Quantity</th>
+                                {% if is_owner or is_inspection %}
+                                <th class="text-center">Action</th>
+                                {% endif %}
+                            </tr>
+                        </thead>
+
+                        <tbody class="table-dark">
+                            {% for item in harvests %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>{{ item.local_harvest_id.harvest_date }}</td>
+                                <td>{{ item.commodity_id }}</td>
+                                <td>{{ item.batch }}</td>
+                                <td>{{ item.expiry_date }}</td>
+                                <td>{{ item.quantity }}</td>
+                                {% if is_owner or is_inspection %}
+                                <td>
+                                    <a href="{% url 'update_local_harvest' item.partner_harvest_detail_id %}" ><button class="btn btn-inverse-warning"><i class="mdi mdi-reload btn-icon-prepend align-middle"></i>Update</button></a>
+                                    {% if is_owner %}
+                                    <a href="{% url 'delete_local_harvest' item.partner_harvest_detail_id %}" ><button class="btn btn-inverse-danger"><i class="mdi mdi-close btn-icon-prepend align-middle"></i>Delete</button></a>
+                                    {% endif %}
+                                </td>
+                                {% endif %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>  
+{% endblock %}

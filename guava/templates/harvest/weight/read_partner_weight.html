@@ -1,0 +1,50 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Partner Harvest</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active " aria-current="page" ><a href="{% url 'read_partner_harvest' %}" class="text-muted">Data Partner Harvest</a></li>
+          <li class="breadcrumb-item "><a href="{% url 'read_partner_weight' %}">Accumulation</a></li>
+          {% if is_owner or is_inspection %}
+          <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'create_partner_harvest' %}">Create Partner Harvest</a></li>
+          {% endif %}
+        </ol>
+      </nav>
+</div>
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="datapenimbanganmitra">
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>Parter Name</th>
+                                <th>Commodity</th>
+                                <th>Harvest Date</th>
+                                <th>Expiry Date</th>
+                                <th>Total Quantity</th>
+                            </tr>
+                        </thead>
+                        <tbody class="table-dark">
+                            {% for item in weights %}
+                            <tr>
+                                <td>{{forloop.counter}}</td>
+                                <td>{{item.partner_harvest_id__partner_id__partner_name}}</td>
+                                <td>{{item.commodity_id__commodity_name}}-{{item.commodity_id__grade_id__grade_name}}</td>
+                                <td>{{item.partner_harvest_id__harvest_date}}</td>
+                                <td>{{item.expiry_date}}</td>
+                                <td>{{item.quantity}}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>  
+{% endblock %}

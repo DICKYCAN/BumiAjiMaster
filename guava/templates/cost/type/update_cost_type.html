@@ -1,0 +1,30 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'read_cost_type' %}">Data Cost Type</a></li>
+          <li class="breadcrumb-item " ><a  href="">Update Cost Type</a></li>
+        </ol>
+      </nav>
+</div>
+<div class="col-12 grid-margin stretch-card">
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title">Update Data</h3>
+            <form class="form-sample" method="post">
+                {% csrf_token %}
+                <div class="form-group row">
+                    <label for="cost_type" class="col-sm-3 col-form-label">Cost Type</label>
+                    <div class="col-sm-9">
+                        <input value="{{cost_type.cost_type_name}}" class="form-control" placeholder="Cost Type" type="text" name="cost_type_name" id="cost_type_name">
+                    </div>
+                </div>
+                <button type="submit"class="btn btn-primary mr-2">Submit</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

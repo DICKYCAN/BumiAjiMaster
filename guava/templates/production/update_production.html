@@ -1,0 +1,63 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'readpartner' %}">Data Partner</a></li>
+          <li class="breadcrumb-item " ><a  href="">Update Partner</a></li>
+        </ol>
+      </nav>
+</div>
+
+<div class="col-12 grid-margin stretch-card">
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title">Update Data</h3>
+            <form class="form-sample"  method="post">
+                {% csrf_token %}
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label" for="product">product</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" name="product" id="product">
+                            {% for item in products %}
+                            {% if item.product_id == production_detail.product_id.product_id %}
+                            <option selected value="{{item.product_id}}">{{item}}</option>
+                            {% else %}
+                            <option value="{{item.product_id}}">{{item}}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label"  for="status_product">Status product</label>
+
+                    <div class="col-sm-9">
+                        <input class="form-control" type="text" value="{{production_detail.status_product}}" name="status_product" id="status_product" required>
+                    </div>
+                </div>
+                <div class="form-group row">
+
+                    <label class="col-sm-3 col-form-label"  for="date">Date</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="date" value="{{date}}" name="date" id="date" required>
+
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label"  for="quantity">Quantity</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="number"  value="{{production_detail.quantity_product}}" name="quantity" id="quantity" required>
+                    </div>
+                </div>
+         
+                <button type="submit" class="btn btn-primary mr-2">Submit</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

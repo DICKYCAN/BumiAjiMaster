@@ -1,0 +1,82 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'read_panenmitra' %}">Data Partner Harvest</a></li>
+          <li class="breadcrumb-item " ><a  href="">Update Partner Harvest</a></li>
+        </ol>
+      </nav>
+</div>
+<div class="col-12 grid-margin stretch-card">
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title">Update Data</h3>
+            <form class="form-sample" method="post">
+                {% csrf_token %}
+                <div class="form-group row">
+                    <label for="partner_name"  class="col-sm-3 col-form-label">Partner Name</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" name="partner_name" id="partner_name" required>
+                            {% for item in partners %}
+                            {% if item.partner_name == detail_obj.partner_harvest_id.partner_id.partner_name %}
+                            <option selected value="{{item.partner_id}}">{{item.partner_name}}</option>
+                            {% else %}
+                            <option value="{{item.mitra_id}}">{{item.partner_name}}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group row">
+                    <label for="harevst_date" class="col-sm-3 col-form-label">Harvest Date</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="date" name="harevst_date" id="harevst_date" value="{{harevst_date}}" required>
+                    </div>
+                </div>
+
+                <div class="form-group row">
+                    <label for="commodity" class="col-sm-3 col-form-label">Commodity</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" name="commodity" id="commodity">
+                            {% for item in commodities %}
+                            {% if item == detail_obj.commodity_id %}
+                            <option selected value="{{item.commodity_id}}">{{item}}</option>
+                            {% else %}
+                            <option value="{{item.commodity_id}}">{{item}}</option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+               
+                <div class="form-group row">
+                    <label for="batch" class="col-sm-3 col-form-label">Batch</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="number" name="batch" id="batch" value="{{detail_obj.batch}}" placeholder="batch" required>
+                    </div>
+                </div>
+            
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label" for="expiry date">Expiry Date</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="date" name="expiry date" id="expiry date" value="{{expiry_date}}" placeholder="expiry date" required>
+                    </div>
+                </div>
+                
+                <div class="form-group row">
+                    <label class="col-sm-3 col-form-label"  for="quantity">Quantity</label>
+                    <div class="col-sm-9">
+                        <input class="form-control" type="number" name="quantity" id="quantity" value="{{detail_obj.quantity}}" placeholder="quantity" required>
+                    </div>
+                </div>
+    
+
+                <button class="btn btn-primary" type="submit">Submit</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

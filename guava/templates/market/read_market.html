@@ -1,0 +1,57 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">Data market</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item "><a href="{% url 'read_market' %}">Data market</a></li>
+            {% if is_owner %}
+          <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'create_market' %}">Create market</a></li>
+            {% endif %}
+        </ol>
+      </nav>
+</div>
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                <table class="table table-bordered" id="tabel">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center">No</th>
+                            <th class="text-center">ID market</th>
+                            <th class="text-center">Market Name</th>
+                            <th class="text-center">Market Address</th>
+                            {% if is_owner %}
+                            <th class="text-center">Action</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody class="table-dark">
+                        <tr>
+                            {% for i in market_obj %}
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ i.market_id }}</td>
+                            <td>{{ i.market_name }}</td>
+                            <td>{{ i.market_address }}</td>
+                            {% if is_owner %}
+                            <td class="text-center">
+                                <a href="{% url 'update_market' i.market_id %}"><button class="btn-inverse-warning btn-icon-text btn-sm mr-2">
+                                    <i class="mdi mdi-reload btn-icon-prepend align-middle"></i>Update market</button></a>
+                                <a href="{% url 'delete_market' i.market_id %}"><button class="btn-inverse-danger btn-icon-text btn-sm">
+                                    <i class="mdi mdi-close btn-icon-prepend align-middle"></i>Delete market</button></a>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

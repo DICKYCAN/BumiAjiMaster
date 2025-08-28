@@ -1,0 +1,77 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item Active " aria-current="page" ><a class="text-muted" href="{% url 'read_partner' %}">Data partner</a></li>
+          <li class="breadcrumb-item " ><a  href="">Update partner</a></li>
+        </ol>
+      </nav>
+</div>
+
+<div class="col-12 grid-margin stretch-card">
+    <div class="card">
+        <div class="card-body">
+            <h3 class="card-title">Update Data</h3>
+            <form class="form-sample" method="post">
+                {% csrf_token %}
+                <div class="form-group row">
+                    <label for="partner_name"  class="col-sm-3 col-form-label">partner name</label>
+                    <div class="col-sm-9">
+                        <input type="text" name="partner_name" id="partner_name" class="form-control" placeholder="Nama partner" value="{{partner_obj.partner_name}}" required>
+                    </div>
+                </div>
+        
+                <div class="form-group row">
+                    <label for="partner_address"  class="col-sm-3 col-form-label">Partner Address</label>
+                    <div class="col-sm-9">
+                        <input type="text" name="partner_address" id="partner_address" placeholder="Alamat partner" class="form-control" value="{{partner_obj.partner_address}}" name required>
+                    </div>
+                </div>
+        
+                <div class="form-group row">
+                    <label for="partner_phone"  class="col-sm-3 col-form-label">Partner Contact</label>
+                    <div class="col-sm-9">
+                        <input  type="number" name="partner_phone" id="partner_phone" placeholder="Kontak partner" class="form-control" value="{{partner_obj.partner_phone}}" required>
+                    </div>
+                </div>
+        
+                <div class="form-group row">
+                    <label for="start_date"  class="col-sm-3 col-form-label">Start Date Partner</label>
+                    <div class="col-sm-9">
+                        <input type="date" name="start_date" id="start_date"  class="form-control" value="{{start_date}}" name required>
+                    </div>
+                </div>
+        
+                <div class="form-group row">
+                    <label for="contract_duration"  class="col-sm-3 col-form-label">Durasi Kontrak</label>
+                    <div class="col-sm-9">
+                        <input type="number" name="contract_duration" id="contract_duration" value="{{partner_obj.contract_duration}}" placeholder="Durasi Kontrak(tahun)" class="form-control" required>
+                    </div>
+                </div>
+        
+                <div class="form-group row">
+                    <label for="land_area"  class="col-sm-3 col-form-label">Land Area(m2)</label>
+                    <div class="col-sm-9">
+                        <input type="number" name="land_area" id="land_area" class="form-control" value="{{partner_obj.land_area}}"  placeholder="Luas Lahan (hektare)" required>
+                    </div>
+                </div>
+        
+                <div class="form-group row">
+                    <label for="partner_status" class="col-sm-3 col-form-label">Partner Status</label>
+                    <div class="col-sm-9">
+                        <select class="form-control" name="partner_status" id="partner_status" required>
+                            <option value="Active" {% if statuspartner == 'Active' %} selected {% endif %}>Active</option>
+                            <option value="Not Active" {% if statuspartner == 'Not Active' %} selected {% endif %}>Not Active</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button type="submit"class="btn btn-primary mr-2">Submit</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

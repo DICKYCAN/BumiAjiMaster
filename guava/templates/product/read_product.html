@@ -1,0 +1,57 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">Data product</h1>
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item "><a href="{% url 'read_product' %}">Data product</a></li>
+          <li class="breadcrumb-item active " aria-current="page" ><a class="text-muted" href="{% url 'create_product' %}">Create product</a></li>
+        </ol>
+      </nav>
+</div>
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                <table class="table table-bordered" id="tabel">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center">No</th>
+                            <th class="text-center">ID product</th>
+                            <th class="text-center">product Name</th>
+                            <th class="text-center">Product Unit</th>
+                            <th class="text-center">Product Price</th>
+                            {% if is_owner %}
+                            <th class="text-center">Action</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody class="table-dark">
+                        <tr>
+                            {% for i in product_obj %}
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ i.product_id }}</td>
+                            <td>{{ i.product_name }}</td>
+                            <td>{{ i.product_unit }}</td>
+                            <td class="text-right">Rp{{ i.product_price }}</td>
+                            {% if is_owner %}
+                            <td class="text-center">
+                                <a href="{% url 'update_product' i.product_id %}"><button class="btn-inverse-warning btn-icon-text btn-sm mr-2">
+                                    <i class="mdi mdi-reload btn-icon-prepend align-middle"></i>Update product</button></a>
+                                <a href="{% url 'delete_product' i.product_id %}"><button class="btn-inverse-danger btn-icon-text btn-sm">
+                                    <i class="mdi mdi-close btn-icon-prepend align-middle"></i>Delete product</button></a>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

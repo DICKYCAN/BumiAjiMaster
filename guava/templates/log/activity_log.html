@@ -13,6 +13,8 @@
                     <th style="width: 15%;">Aksi</th>
                     <th style="width: 45%;">Deskripsi</th>
                     <th style="width: 20%;">Waktu</th>
+                    <th style="width: 20%;">Action</th>
+
                 </tr>
             </thead>
             <tbody class="table-dark">
@@ -23,6 +25,14 @@
                     <td style="white-space: normal; word-break: break-word;">{{ log.action }}</td>
                     <td style="white-space: normal; word-break: break-word;">{{ log.description }}</td>
                     <td style="white-space: normal; word-break: break-word;">{{ log.timestamp|date:"d M Y H:i" }}</td>
+                    <td>
+                        <form action="{% url 'delete_log' log.id %}" method="post" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">
+                                Delete
+                            </button>
+                        </form>
+                    </td>
                 </tr>
                 {% empty %}
                 <tr>

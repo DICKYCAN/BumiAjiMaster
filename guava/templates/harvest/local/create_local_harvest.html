@@ -1,0 +1,143 @@
+{% extends "base/base.html" %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Create Local harvest</h1>
+    <nav aria-label="breadcrumb">
+        <div class="mr2">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item active" aria-current="page">
+                    <a class="text-muted" href="{% url 'read_local_harvest' %}">Data Local harvest</a>
+                </li>
+                <li class="breadcrumb-item active" aria-current="page">
+                    <a class="text-muted" href="{% url 'read_weight_local' %}">Accumulation</a>
+                </li>
+                <li class="breadcrumb-item">
+                    <a href="{% url 'create_local_harvest' %}">Create Local harvest</a>
+                </li>
+            </ol>
+        </div>
+    </nav>
+</div>
+
+<div class="row">
+    <div class="col-lg-12 grid-margin stretch-card">
+        <div class="card">
+            <div class="card-body">
+                <form class="form-sample" method="post">
+                    {% csrf_token %}
+                    <div class="form-group row">
+                        <label for="harvest_date" class="col-sm-3 col-form-label">harvest</label>
+                        <div class="col-sm-9">
+                            <input type="date" class="form-control" name="harvest_date" id="harvest_date" required>
+                        </div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-inverse-success" onclick="addlocal_harvest()">add</button>
+                        </div>
+                    </div>
+                    <div id="adddetail">
+                        <div class="detail-row mb-4">
+                            <h3 class="card-title">Local harvest Detail 1</h3>
+                            <div class="form-group row">
+                                <label for="commodity" class="col-sm-3 col-form-label">commodity</label>
+                                <div class="col-sm-9">
+                                    <select class="form-control commodity" name="commodity" id="commodity">
+                                        {% for item in allcommodity %}
+                                        <option value="{{ item.commodity_id }}">{{ item }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="batch" class="col-sm-3 col-form-label">Batch</label>
+                                <div class="col-sm-9">
+                                    <input class="form-control" type="number" name="batch" id="batch" placeholder="Batch" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="expiry_date" class="col-sm-3 col-form-label">expiry date</label>
+                                <div class="col-sm-9">
+                                    <input class="form-control" type="date" name="expiry_date" id="expiry_date"  required>
+                                </div>
+                            </div>
+
+                            <div class="form-group row">
+                                <label for="quantity" class="col-sm-3 col-form-label">quantity</label>
+                                <div class="col-sm-9">
+                                    <input class="form-control" type="number" name="quantity" id="quantity" placeholder="quantity" required>
+                                </div>
+                            </div>
+                            <button class="btn btn-inverse-danger" type="button" onclick="deleterow(this)">Delete</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Submit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% block javascripts %}
+<script>
+    function addlocal_harvest() {
+        const rows = document.querySelectorAll('#adddetail .detail-row');
+        const angka = rows.length + 1;
+        const baris = document.createElement('div');
+        baris.className = 'detail-row mb-4';
+        baris.innerHTML = `
+            <h3 class="card-title">Local harvest Detail ${angka}</h3>
+            <div class="form-group row">
+                <label for="commodity" class="col-sm-3 col-form-label">commodity</label>
+                <div class="col-sm-9">
+                    <select class="form-control commodity" name="commodity" id="commodity">
+                        {% for item in allcommodity %}
+                        <option value="{{ item.commodity_id }}">{{ item }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="batch" class="col-sm-3 col-form-label">Batch</label>
+                <div class="col-sm-9">
+                    <input class="form-control" type="number" name="batch" id="batch" placeholder="Batch" required>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="expiry_date" class="col-sm-3 col-form-label">expiry date</label>
+                <div class="col-sm-9">
+                    <input class="form-control" type="date" name="expiry_date" id="expiry_date" required>
+                </div>
+            </div>
+
+            <div class="form-group row">
+                <label for="quantity" class="col-sm-3 col-form-label">quantity</label>
+                <div class="col-sm-9">
+                    <input class="form-control" type="number" name="quantity" id="quantity" placeholder="quantity" required>
+                </div>
+            </div>
+            <button class="btn btn-inverse-danger" type="button" onclick="deleterow(this)">Delete</button>
+        `;
+        document.getElementById('adddetail').appendChild(baris);
+        updateRowNumbers();
+    }
+
+    function deleterow(button) {
+        button.closest('.detail-row').remove();
+        updateRowNumbers();
+    }
+
+    function updateRowNumbers() {
+        const rows = document.querySelectorAll('#adddetail .detail-row');
+        rows.forEach((row, index) => {
+            const title = row.querySelector('h3');
+            title.textContent = `Local harvest Detail${index + 1}`;
+        });
+    }
+</script>
+{% endblock javascripts %}
+{% endblock %}

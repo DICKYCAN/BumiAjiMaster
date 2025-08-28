@@ -2,87 +2,85 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
-    path('',views.loginview, name='login'),
-    path('performlogin',views.performlogin,name="performlogin"),
-    path('performlogout',views.performlogout,name="performlogout"),
+    path('',views.login_view, name='login'),
+    path('performlogin',views.perform_login,name="performlogin"),
+    path('performlogout',views.perform_logout,name="performlogout"),
     path('base', views.base,name='base'),
-    # path('sidebar', views.sidebar,name='sidebar'),
-    # path('navbar', views.navbar,name='navbar'),
-    # path('errors', views.errors,name='errors'),
-    # CRUD MITRA
-    path('create_mitra', views.create_mitra,name='create_mitra'),
-    path('readmitra', views.read_mitra,name='readmitra'),
-    path('update_mitra/<str:id>', views.update_mitra,name='update_mitra'),
-    path('delete_mitra/<str:id>', views.delete_mitra,name='delete_mitra'),
-    # CRUD PENJUALAN
-    path('create_penjualan', views.create_penjualan,name='create_penjualan'),
-    path('read_penjualan', views.read_penjualan,name='read_penjualan'),
-    path('update_penjualan/<str:id>', views.update_penjualan,name='update_penjualan'),
-    path('delete_penjualan/<str:id>', views.delete_penjualan,name='delete_penjualan'),
-    # CUD DETAIL PENJUALAN
-    path('update_detail_penjualan/<str:id>', views.update_detail_penjualan,name='update_detail_penjualan'),
-    path('delete_detail_penjualan/<str:id>', views.delete_detail_penjualan,name='delete_detail_penjualan'),
-    path('create_detail_penjualan/<str:id>', views.create_detail_penjualan,name='create_detail_penjualan'),
-    # CRUD PRODUK
-    path('create_produk', views.create_produk,name='create_produk'),
-    path('read_produk', views.read_produk,name='read_produk'),
-    path('update_produk/<str:id>', views.update_produk,name='update_produk'),
-    path('delete_produk/<str:id>', views.delete_produk,name='delete_produk'),
-    # CRUD KOMODITAS
-    path('create_komoditas', views.create_komoditas,name='create_komoditas'),
-    path('read_komoditas', views.read_komoditas,name='read_komoditas'),
-    path('update_komoditas/<str:id>', views.update_komoditas,name='update_komoditas'),
-    path('delete_komoditas/<str:id>', views.delete_komoditas,name='delete_komoditas'),
+    # CRUD partner
+    path('create_partner', views.create_partner,name='create_partner'),
+    path('read_partner', views.read_partner,name='read_partner'),
+    path('update_partner/<str:id>', views.update_partner,name='update_partner'),
+    path('delete_partner/<str:id>', views.delete_partner,name='delete_partner'),
+    # CRUD sale
+    path('create_sale', views.create_sale,name='create_sale'),
+    path('read_sale', views.read_sale,name='read_sale'),
+    path('update_sale/<str:id>', views.update_sale,name='update_sale'),
+    path('delete_sale/<str:id>', views.delete_sale,name='delete_sale'),
+    # CUD DETAIL sale
+    path('update_sale_detail/<str:id>', views.update_sale_detail,name='update_sale_detail'),
+    path('delete_sale_detail/<str:id>', views.delete_sale_detail,name='delete_sale_detail'),
+    path('create_sale_detail/<str:id>', views.create_sale_detail,name='create_sale_detail'),
+    # CRUD product
+    path('create_product', views.create_product,name='create_product'),
+    path('read_product', views.read_product,name='read_product'),
+    path('update_product/<str:id>', views.update_product,name='update_product'),
+    path('delete_product/<str:id>', views.delete_product,name='delete_product'),
+    # CRUD commodity
+    path('create_commodity', views.create_commodity,name='create_commodity'),
+    path('read_commodity', views.read_commodity,name='read_commodity'),
+    path('update_commodity/<str:id>', views.update_commodity,name='update_commodity'),
+    path('delete_commodity/<str:id>', views.delete_commodity,name='delete_commodity'),
     # CRUD GRADE
     path('create_grade', views.create_grade,name='create_grade'),
     path('read_grade',views.read_grade,name='read_grade'),
     path('update_grade/<str:id>', views.update_grade,name='update_grade'),
     path('delete_grade/<str:id>', views.delete_grade,name='delete_grade'),
-    # CRUD PASAR
-    path('create_pasar', views.create_pasar,name='create_pasar'),
-    path('read_pasar', views.read_pasar,name='read_pasar'),
-    path('update_pasar/<str:id>', views.update_pasar,name='update_pasar'),
-    path('delete_pasar/<str:id>', views.delete_pasar,name='delete_pasar'),
+    # CRUD market
+    path('create_market', views.create_market,name='create_market'),
+    path('read_market', views.read_market,name='read_market'),
+    path('update_market/<str:id>', views.update_market,name='update_market'),
+    path('delete_market/<str:id>', views.delete_market,name='delete_market'),
      # CRUD PANEN
-    path('create_panenmitra', views.create_panenmitra,name='create_panenmitra'),
-    path('read_panenmitra', views.read_panenmitra,name='read_panenmitra'),
-    path('update_panenmitra/<str:id>', views.update_panenmitra,name='update_panenmitra'),
-    path('delete_panenmitra/<str:id>', views.delete_panenmitra,name='delete_panenmitra'),
+    path('create_partner_harvest', views.create_partner_harvest,name='create_partner_harvest'),
+    path('read_partner_harvest', views.read_partner_harvest,name='read_partner_harvest'),
+    path('update_partner_harvest/<str:id>', views.update_partner_harvest,name='update_partner_harvest'),
+    path('delete_partner_harvest/<str:id>', views.delete_partner_harvest,name='delete_partner_harvest'),
     
-    path('create_panenlokal', views.create_panenlokal,name='create_panenlokal'),
-    path('read_panenlokal', views.read_panenlokal,name='read_panenlokal'),
-    path('update_panenlokal/<str:id>', views.update_panenlokal,name='update_panenlokal'),
-    path('delete_panenlokal/<str:id>', views.delete_panenlokal,name='delete_panenlokal'),
+    path('read_local_harvest', views.read_local_harvest,name='read_local_harvest'),
+    path('update_local_harvest/<str:id>', views.update_local_harvest,name='update_local_harvest'),
+    path('delete_local_harvest/<str:id>', views.delete_local_harvest,name='delete_local_harvest'),
 
-    path('read_penimbanganmitra', views.read_penimbanganmitra,name='read_penimbanganmitra'),
-    path('read_penimbanganlokal', views.read_penimbanganlokal,name='read_penimbanganlokal'),
+    path('read_partner_weight', views.read_partner_weight,name='read_partner_weight'),
+    path('read_local_weight', views.read_local_weight,name='read_local_weight'),
 
     # CRUD BIAYA
-    path('create_jenisbiaya', views.create_jenisbiaya,name='create_jenisbiaya'),
-    path('read_jenisbiaya', views.read_jenisbiaya,name='read_jenisbiaya'),
-    path('update_jenisbiaya/<str:id>', views.update_jenisbiaya,name='update_jenisbiaya'),
-    path('delete_jenisbiaya/<str:id>', views.delete_jenisbiaya,name='delete_jenisbiaya'),
+    path('create_cost_type', views.create_cost_type,name='create_cost_type'),
+    path('read_cost_type', views.read_cost_type,name='read_cost_type'),
+    path('update_cost_type/<str:id>', views.update_cost_type,name='update_cost_type'),
+    path('delete_cost_type/<str:id>', views.delete_cost_type,name='delete_cost_type'),
     
-    path('create_detailbiaya', views.create_detailbiaya,name='create_detailbiaya'),
-    path('read_detailbiaya', views.read_detailbiaya,name='read_detailbiaya'),
-    path('update_detailbiaya/<str:id>', views.update_detailbiaya,name='update_detailbiaya'),
-    path('delete_detailbiaya/<str:id>', views.delete_detailbiaya,name='delete_detailbiaya'),
+    path('create_cost_detail', views.create_cost_detail,name='create_cost_detail'),
+    path('read_cost_detail', views.read_cost_detail,name='read_cost_detail'),
+    path('update_cost_detail/<str:id>', views.update_cost_detail,name='update_cost_detail'),
+    path('delete_cost_detail/<str:id>', views.delete_cost_detail,name='delete_cost_detail'),
 
-    # CRUD PRODUKSI
-    path('create_produksi', views.create_produksi,name='create_produksi'),
-    path('read_produksi', views.read_produksi,name='read_produksi'),
-    path('update_produksi/<str:id>', views.update_produksi,name='update_produksi'),
-    path('delete_produksi/<str:id>', views.delete_produksi,name='delete_produksi'),
+    # CRUD production
+    path('create_production', views.create_production,name='create_production'),
+    path('read_production', views.read_production,name='read_production'),
+    path('update_production/<str:id>', views.update_production,name='update_production'),
+    path('delete_production/<str:id>', views.delete_production,name='delete_production'),
 
     # Laporan
-    path('laporan_penjualan', views.laporan_penjualan,name='laporan_penjualan'),
-    path('laporanpanen', views.laporan_panen,name='laporanpanen'),
-    path('laporan_labarugi', views.laporan_labarugi,name='laporan_labarugi'),
-    path('laporanlabarugi_pdf<str:bulan>', views.laporanlabarugi_pdf,name='laporanlabarugi_pdf'),
+    path('sales_report', views.sales_report,name='sales_report'),
+    path('harvest_report', views.harvest_report,name='harvest_report'),
+    path('pnl_report', views.profit_and_loss_report,name='pnl_report'),
+    path('profit_and_loss_pdf<str:bulan>', views.profit_and_loss_pdf,name='profit_and_loss_pdf'),
 
-    path('total_komoditas/', views.total_komoditas, name='total_komoditas'),
-    path('rekap_panen/', views.rekap_panen_bulanan, name='rekap-panen'),
-    path('log_aktivitas/', views.log_aktivitas, name='log_aktivitas')
+    path('total_commodities/', views.total_commodities, name='total_commodities'),
+    path('rekap_panen/', views.monthly_harvest_report, name='rekap-panen'),
+    path('activity_logs/', views.activity_logs, name='activity_logs'),
+    path('logs/delete/<int:id>/', views.delete_log, name='delete_log')
+
 
 
 ]
